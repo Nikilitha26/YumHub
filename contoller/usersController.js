@@ -1,4 +1,4 @@
-import {getUsersDb, getUserDb, insertUserDb, deleteUserDb, updateUserDb} from '../model/usersDb.js'
+import {getUsersDb, getUserDb, getUserDbById, insertUserDb, deleteUserDb, updateUserDb} from '../model/usersDb.js'
 import { checkUser } from '../middleware/authenticate.js';
 import { hash, compare} from 'bcrypt';
 import bcrypt from 'bcrypt';
@@ -7,9 +7,25 @@ const getUsers = async(req,res)=>{
     res.json(await getUsersDb());
 }
 
-const getUser = async(req,res)=>{
-    res.json(await getUserDb(req.params.userID));
-}
+const getUser = async (req, res) => {
+  const userID = req.params.id;
+  console.log('Getting user with ID:', userID);
+
+  try {
+    const user = await getUserDbById(userID);
+    console.log('getUserDb returned:', user);
+
+    if (!user || user.length === 0) {
+      res.status(404).json({ error: 'User  not found' });
+    } else {
+      res.json(user[0]); // Assuming getUserDb returns an array with a single user object
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error getting user' });
+  }
+};
+
 
 const insertUser = async (req, res) => {
   let { firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile } = req.body
@@ -39,7 +55,7 @@ const insertUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   let { userID, firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile } = req.body;
-  let user = await getUserDb(req.params.userID);
+  let user = await getUserDbById(req.params.userID);
   userID ? userID = userID : userID = user.userID;
   firstName ? firstName = firstName : firstName = user.firstName;
   lastName ? lastName = lastName : lastName = user.lastName;

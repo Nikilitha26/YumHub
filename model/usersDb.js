@@ -11,6 +11,11 @@ const getUserDb = async (emailAdd) => {
   return data;
 }
 
+const getUserDbById = async (userID) => {
+  let [data] = await pool.query('SELECT * FROM users WHERE userID = ?', [userID]);
+  return data;
+}
+
 const insertUserDb = async (firstName, lastName, userAge, Gender, userRole, emailAdd, userProfile, hashedPass) => {
   const existingUser = await getUserDb(emailAdd);
   if (existingUser.length > 0) {
@@ -33,4 +38,4 @@ const deleteUserDb = async (userID) => {
         [firstName, lastName, userAge, Gender, userRole, emailAdd, userProfile, hashedPass, userID])
   }
 
-export {getUsersDb, getUserDb, insertUserDb, deleteUserDb, updateUserDb}
+export {getUsersDb, getUserDb, getUserDbById, insertUserDb, deleteUserDb, updateUserDb}

@@ -73,11 +73,8 @@ const updateUser = async (req, res) => {
   userProfile ? userProfile = userProfile : userProfile = user[0].userProfile;
 
   let hashedPass = user[0].userPass;
-  if (userPass && userPass.trim() !== '') {
-    const isValid = await compare(userPass, user[0].userPass);
-    if (!isValid) {
-      hashedPass = await bcrypt.hash(userPass, 10); // Hash the new password
-    }
+  if (req.body.updatePassword && userPass && userPass.trim() !== '') {
+    hashedPass = await bcrypt.hash(userPass, 10); // Hash the new password
   }
 
   console.log('Updated values:', userID, firstName, lastName, userAge, Gender, userRole, emailAdd, hashedPass, userProfile);

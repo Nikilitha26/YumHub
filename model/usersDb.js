@@ -32,8 +32,12 @@ const deleteUserDb = async (userID) => {
     const result = await pool.query('DELETE FROM users WHERE userID = ?', [userID])
   }
 
-  const updateUserDb = async (userID, firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile)=>{
-    const hashedPass = await bcrypt.hash(userPass, 10);
+  const updateUserDb = async (userID, firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile)=> {
+    const user = await getUserDbById(userID);
+    let hashedPass = user[0].userPass;
+    if (userPass && userPass.trim() !== '' && !(await bcrypt.compare(userPass, user[0].userPass))) {
+      hashedPass = await bcrypt.hash(userPass, 10);
+    }
     await pool.query('UPDATE users SET firstName = ?, lastName = ?, userAge = ?, Gender = ?, userRole = ?, emailAdd = ?, userProfile = ?, userPass = ? WHERE userID = ?',
         [firstName, lastName, userAge, Gender, userRole, emailAdd, userProfile, hashedPass, userID])
   }

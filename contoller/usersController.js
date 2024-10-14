@@ -54,23 +54,42 @@ const insertUser = async (req, res) => {
 }
 
 const updateUser = async (req, res) => {
-  let { userID, firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile } = req.body;
-  let user = await getUserDbById(req.params.userID);
-  userID ? userID = userID : userID = user.userID;
-  firstName ? firstName = firstName : firstName = user.firstName;
-  lastName ? lastName = lastName : lastName = user.lastName;
-  userAge ? userAge = userAge : userAge = user.userAge;
-  Gender ? Gender = Gender : Gender = user.Gender;
-  userRole ? userRole = userRole : userRole = user.userRole;
-  emailAdd ? emailAdd = emailAdd : emailAdd = user.emailAdd;
-  if (userPass) {
-    userPass = await hash(userPass, 10);
-  } else {
-    userPass = user.userPass;
+  console.log('req.body:', req.body);
+  console.log('req.params:', req.params);
+
+  let { firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile } = req.body;
+  console.log('Extracted values from req.body:', firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile);
+
+  let user = await getUserDbById(req.params.id);
+  console.log('User     retrieved from database:', user);
+
+  let userID = req.params.id;
+  firstName ? firstName = firstName : firstName = user[0].firstName;
+  lastName ? lastName = lastName : lastName = user[0].lastName;
+  userAge ? userAge = userAge : userAge = user[0].userAge;
+  Gender ? Gender = Gender : Gender = user[0].Gender;
+  userRole ? userRole = userRole : userRole = user[0].userRole;
+  emailAdd ? emailAdd = emailAdd : emailAdd = user[0].emailAdd;
+  userProfile ? userProfile = userProfile : userProfile = user[0].userProfile;
+
+  let hashedPass = user[0].userPass;
+  if (userPass && userPass.trim() !== '') {
+    const isValid = await compare(userPass, user[0].userPass);
+    if (!isValid) {
+      hashedPass = await bcrypt.hash(userPass, 10); // Hash the new password
+    }
   }
-  userProfile ? userProfile = userProfile : userProfile = user.userProfile;
-  await updateUserDb(userID, firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile);
-  res.send('Update was successful');
+
+  console.log('Updated values:', userID, firstName, lastName, userAge, Gender, userRole, emailAdd, hashedPass, userProfile);
+
+  try {
+    await updateUserDb(userID, firstName, lastName, userAge, Gender, userRole, emailAdd, hashedPass, userProfile);
+    console.log('Update successful');
+    res.send('Update was successful');
+  } catch (err) {
+    console.error('Error updating user:', err);
+    res.status(500).send('Error updating user');
+  }
 };
 
 const loginUser = (req, res, token) => {

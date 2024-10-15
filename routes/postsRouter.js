@@ -1,6 +1,7 @@
 import express from 'express'
 import {getPosts, getPost, createPost, deletePost, updatePost, likePost} from '../contoller/postsController.js'
 import { verifyAToken } from '../middleware/authenticate.js'
+import {getNotificationsDb} from '../model/postsDb.js'
 
 const router = express.Router()
 
@@ -23,6 +24,18 @@ router.post('/like', verifyAToken, async (req, res) => {
       res.status(500).json({ message: 'Error liking post' });
     }
   });
+
+  router.get('/notifications', verifyAToken, async (req, res) => {
+    try {
+      const userID = req.user.id;
+      const notifications = await getNotificationsDb(userID);
+      res.json(notifications);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error getting notifications' });
+    }
+  });
+
 
 router.get('/', getPosts)
 router.post('/',  createPost)

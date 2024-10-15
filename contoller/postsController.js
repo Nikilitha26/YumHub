@@ -1,4 +1,4 @@
-import { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb } from '../model/postsDb.js'
+import { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb } from '../model/postsDb.js'
 import { getUsersDb } from '../model/usersDb.js'
 
 const getPosts = async (req, res) => {
@@ -36,19 +36,28 @@ const updatePost = async(req,res)=>{
 }
 
 const likePost = async (req, res) => {
-    let userID = req.body.userID;
-    let postID = req.body.postID;
-    if (!userID || !postID) {
-      res.status(400).json({ error: 'userID and postID are required' });
+  let userID = req.body.userID;
+  let postID = req.body.postID;
+  if (!userID || !postID) {
+    res.status(400).json({ error: 'userID and postID are required' });
+    return;
+  }
+  try {
+    let post = await getPostDb(postID);
+    if (!post) {
+      res.status(404).json({ error: 'Post not found' });
       return;
     }
-    try {
-      await likePostDb(userID, postID);
-      res.json({ message: "Successfully liked!" });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to like post' });
-    }
-}
+    await likePostDb(userID, postID);
+    post.likeCount++;
+    await updatePostDb(postID, post.title, post.content, post.imageUrl, post.category, post.tags, post.likeCount);
+    // Create a new notification
+    await createNotificationDb(post.userID, userID, 'like', `liked your post`, postID);
+    res.json({ message: "Successfully liked!", likeCount: post.likeCount });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to like post' });
+  }
+};
 
 export {getPosts, getPost, createPost, deletePost, updatePost, likePost}

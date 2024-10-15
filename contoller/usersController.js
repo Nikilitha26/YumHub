@@ -104,23 +104,30 @@ const loginUser = (req, res, token) => {
   });
 };
 
+const followUser  = async (req, res) => {
+  try {
+    const followerId = req.body.followerId
+    const followedId = req.params.id
+    await createFollowDb(followerId, followedId)
+    res.json({ message: 'You are now following this user' })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+};
 
-export {getUsers, getUser, insertUser, deleteUser, updateUser, loginUser}
+const unfollowUser  = async (req, res) => {
+  try {
+    const followerId = req.body.followerId
+    const followedId = req.params.id
+    await deleteFollowDb(followerId, followedId)
+    res.json({ message: 'You are no longer following this user' })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+};
+
+export {getUsers, getUser, insertUser, deleteUser, updateUser, loginUser, unfollowUser, followUser}
 
 
-// const updateUser = async (req, res) => {
-//     try {
-//       let { userID, firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile } = req.body;
-//       const user = await getUserDb(req.params.userID);
-//       const updatedUser = { ...user, ...req.body };
-//       if (userPass) {
-//         updatedUser.userPass = await hash(userPass, 10);
-//       }
-//       await updateUserDb(req.params.userID, updatedUser.firstName, updatedUser.lastName, updatedUser.userAge, updatedUser.Gender, updatedUser.userRole, updatedUser.emailAdd, updatedUser.userPass, updatedUser.userProfile);
-//       res.send('Update was successful');
-//     } catch (err) {
-//       console.error(err);
-//       res.status(500).send('Error updating user');
-//     }
-//   };
+
   

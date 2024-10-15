@@ -1,5 +1,5 @@
 import express from 'express'
-import {getUsers, getUser, insertUser, deleteUser, updateUser,loginUser} from '../contoller/usersController.js'
+import {getUsers, getUser, insertUser, deleteUser, updateUser, loginUser, followUser, unfollowUser} from '../contoller/usersController.js'
 import { checkUser } from '../middleware/authenticate.js'
 
 const router = express.Router()
@@ -17,5 +17,13 @@ router.
         .get(getUser)
         .delete(deleteUser)
         .patch(updateUser)
+        
+        router
+        .route('/:id/follow')
+        .post(followUser )
+      
+      router
+        .route('/:id/unfollow')
+        .post(unfollowUser )
         
 export default router

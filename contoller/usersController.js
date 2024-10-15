@@ -41,28 +41,30 @@ const insertUser = async (req, res) => {
       res.status(500).send('Error inserting user')
     }
   }
-}
+};
 
-  const deleteUser = async (req, res) => {
-    try {
-        await deleteUserDb(req.params.id)
-        res.send('User has been deleted')
-    } catch (err) {
-        console.error(err)
-        res.status(500).send('Error deleting user')
+const deleteUser = async (req, res) => {
+  try {
+    const user = await getUserDbById(req.params.id);
+    if (!user || user.length === 0) {
+      res.status(404).json({ error: 'User  not found' });
+    } else {
+      await deleteUserDb(req.params.id);
+      res.send('User  has been deleted');
     }
-}
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error deleting user');
+  }
+};
 
 const updateUser = async (req, res) => {
   console.log('req.body:', req.body);
   console.log('req.params:', req.params);
-
   let { firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile } = req.body;
   console.log('Extracted values from req.body:', firstName, lastName, userAge, Gender, userRole, emailAdd, userPass, userProfile);
-
   let user = await getUserDbById(req.params.id);
-  console.log('User     retrieved from database:', user);
-
+  console.log('User retrieved from database:', user);
   let userID = req.params.id;
   firstName ? firstName = firstName : firstName = user[0].firstName;
   lastName ? lastName = lastName : lastName = user[0].lastName;
@@ -71,16 +73,18 @@ const updateUser = async (req, res) => {
   userRole ? userRole = userRole : userRole = user[0].userRole;
   emailAdd ? emailAdd = emailAdd : emailAdd = user[0].emailAdd;
   userProfile ? userProfile = userProfile : userProfile = user[0].userProfile;
-
   let hashedPass = user[0].userPass;
   if (req.body.updatePassword && userPass && userPass.trim() !== '') {
-    hashedPass = await bcrypt.hash(userPass, 10); // Hash the new password
+    console.log('Rehashing new password');
+    hashedPass = await bcrypt.hash(userPass.trim(), 10);
+  } else {
+    console.log('Keeping original hashed password');
   }
-
   console.log('Updated values:', userID, firstName, lastName, userAge, Gender, userRole, emailAdd, hashedPass, userProfile);
-
   try {
     await updateUserDb(userID, firstName, lastName, userAge, Gender, userRole, emailAdd, hashedPass, userProfile);
+    let updatedUser = await getUserDbById(req.params.id);
+    console.log('User after update:', updatedUser);
     console.log('Update successful');
     res.send('Update was successful');
   } catch (err) {
@@ -90,7 +94,9 @@ const updateUser = async (req, res) => {
 };
 
 const loginUser = (req, res, token) => {
+  console.log('Login attempt:', req.body);
   checkUser(req, res, () => {
+    console.log('CheckUser successful');
     res.json({
       message: "You have signed in!!",
       token: token

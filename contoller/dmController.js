@@ -1,71 +1,47 @@
-import { getConversationsDb, getConversationDb, getMessagesDb, createConversationDb, createMessageDb } from '../model/dmDb';
+import { createMessageDb, getMessagesDb, getConversationDb, deleteMessageDb } from '../model/dmDb.js';
 
-export const getConversations = async (req, res) => {
+// Controller to send a new message
+const sendMessage = async (req, res) => {
+  const { sender_userID, recipient_userID, message_text } = req.body;
   try {
-    const userID = req.user.id;
-    const conversations = await getConversationsDb(userID);
-    res.json(conversations);
+    const messageId = await createMessageDb(sender_userID, recipient_userID, message_text);
+    res.status(201).json({ messageId });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error getting conversations' });
+    res.status(500).json({ error: error.message });
   }
 };
 
-export const getConversation = async (req, res) => {
+// Controller to get messages between two users
+const getMessages = async (req, res) => {
+  const { sender_userID, recipient_userID } = req.query;
   try {
-    const conversationID = req.params.id;
-    const conversation = await getConversationDb(conversationID);
-    if (!conversation) {
-      res.status(404).json({ message: 'Conversation not found' });
-      return;
-    }
-    res.json(conversation);
+    const messages = await getMessagesDb(sender_userID, recipient_userID);
+    res.status(200).json(messages);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error getting conversation' });
+    res.status(500).json({ error: error.message });
   }
 };
 
-export const getMessages = async (req, res) => {
+// Controller to get the conversation between two users
+const getConversation = async (req, res) => {
+  const { sender_userID, recipient_userID } = req.query;
   try {
-    const conversationID = req.params.id;
-    const messages = await getMessagesDb(conversationID);
-    res.json(messages);
+    const conversation = await getConversationDb(sender_userID, recipient_userID);
+    res.status(200).json(conversation);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error getting messages' });
+    res.status(500).json({ error: error.message });
   }
 };
 
-export const createConversation = async (req, res) => {
+// Controller to delete a message by ID
+const deleteMessage = async (req, res) => {
+  const { id } = req.params;
   try {
-    const user1ID = req.user.id;
-    const user2ID = req.body.user2ID;
-    if (!user2ID) {
-      res.status(400).json({ message: 'User  2 ID is required' });
-      return;
-    }
-    await createConversationDb(user1ID, user2ID);
-    res.json({ message: 'Conversation created successfully' });
+    await deleteMessageDb(id);
+    res.status(200).json({ message: `Message with ID ${id} deleted successfully` });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error creating conversation' });
+    res.status(500).json({ error: error.message });
   }
 };
 
-export const createMessage = async (req, res) => {
-  try {
-    const conversationID = req.params.id;
-    const senderID = req.user.id;
-    const content = req.body.content;
-    if (!content) {
-      res.status(400).json({ message: 'Message content is required' });
-      return;
-    }
-    await createMessageDb(conversationID, senderID, content);
-    res.json({ message: 'Message sent successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error sending message' });
-  }
-};
+export { sendMessage, getMessages, getConversation, deleteMessage };

@@ -3,6 +3,7 @@ import express from 'express'
 import {config} from 'dotenv'
 import postsRouter from './routes/postsRouter.js'
 import usersRouter from './routes/usersRouter.js'
+import dmRouter from './routes/dmRouter.js'
 
 config()
 
@@ -18,6 +19,7 @@ app.use(express.static('public'))
 
 app.use('/users', usersRouter)
 app.use('/posts', postsRouter) 
+app.use('/dm', dmRouter) 
 app.listen(PORT, ()=>{
     console.log('http://localhost:'+PORT);
 })

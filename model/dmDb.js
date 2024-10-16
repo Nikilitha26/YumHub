@@ -1,72 +1,43 @@
 import { pool } from "../config/config.js";
 
-const getConversationsDb = async (userID) => {
-  try {
-    let [data] = await pool.query(`
-      SELECT c.id, c.user1_id, c.user2_id, u1.username as user1_username, u2.username as user2_username
-      FROM conversations c
-      JOIN users u1 ON c.user1_id = u1.id
-      JOIN users u2 ON c.user2_id = u2.id
-      WHERE c.user1_id = ? OR c.user2_id = ?
-    `, [userID, userID]);
-    return data;
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
+// Function to create a new message
+const createMessageDb = async (sender_userID, recipient_userID, message_text) => {
+  const [result] = await pool.query(`
+    INSERT INTO messages (sender_id, recipient_id, message_text)
+    VALUES (?, ?, ?)
+  `, [sender_userID, recipient_userID, message_text]);
+  return result.insertId; 
+  // Return the ID of the newly created message
 };
 
-const getConversationDb = async (conversationID) => {
-  try {
-    let [data] = await pool.query(`
-      SELECT * FROM conversations
-      WHERE id = ?
-    `, [conversationID]);
-    return data[0];
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
+// Function to get messages between two users
+const getMessagesDb = async (sender_userID, recipient_userID) => {
+  const [data] = await pool.query(`
+    SELECT * FROM messages 
+    WHERE (sender_id = ? AND recipient_id = ?) 
+    OR (sender_id = ? AND recipient_id = ?)
+    ORDER BY created_at ASC
+  `, [sender_userID, recipient_userID, recipient_userID, sender_userID]);
+  return data; // Return the list of messages
 };
 
-const getMessagesDb = async (conversationID) => {
-  try {
-    let [data] = await pool.query(`
-      SELECT * FROM messages
-      WHERE conversation_id = ?
-      ORDER BY created_at ASC
-    `, [conversationID]);
-    return data;
-  } catch (error) {
-    console.error(error);
-    throw error;
-  }
+// Function to get a conversation between two users
+const getConversationDb = async (sender_userID, recipient_userID) => {
+  const [data] = await pool.query(`
+    SELECT * FROM messages 
+    WHERE (sender_id = ? AND recipient_id = ?) 
+    OR (sender_id = ? AND recipient_id = ?)
+    ORDER BY created_at ASC
+  `, [sender_userID, recipient_userID, recipient_userID, sender_userID]);
+  return data; // Return the conversation messages
 };
 
-const createConversationDb = async (user1ID, user2ID) => {
-  try {
-    await pool.query(`
-      INSERT INTO conversations (user1_id, user2_id)
-      VALUES (?,?)
-    `, [user1ID, user2ID]);
-    return true;
-  } catch (error) {
-    console.error(error);
-    return false;
-  }
+// Function to delete a message by ID
+const deleteMessageDb = async (id) => {
+  await pool.query(`
+    DELETE FROM messages 
+    WHERE id = ?
+  `, [id]);
 };
 
-const createMessageDb = async (conversationID, senderID, content) => {
-  try {
-    await pool.query(`
-      INSERT INTO messages (conversation_id, sender_id, content)
-      VALUES (?,?,?)
-    `, [conversationID, senderID, content]);
-    return true;
-  } catch (error) {
-    console.error(error);
-    return false;
-  }
-};
-
-export { getConversationsDb, getConversationDb, getMessagesDb, createConversationDb, createMessageDb };
+export { createMessageDb, getMessagesDb, getConversationDb, deleteMessageDb };

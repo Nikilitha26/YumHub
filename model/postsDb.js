@@ -51,4 +51,27 @@ const likePostDb = async (userID, postID) => {
     }
   };
 
-export {getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb};
+  const createNotificationDb = async (notificationUserId, userId, notificationType, notificationText, postId) => {
+    try {
+      await pool.query(`
+        INSERT INTO notifications (user_id, notification_type, notification_text, post_id)
+        VALUES (?,?,?,?)
+      `, [notificationUserId, notificationType, notificationText, postId]);
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+
+  const getNotificationsDb = async (userID) => {
+    try {
+      let [data] = await pool.query('SELECT * FROM notifications WHERE user_id = ?', [userID]);
+      return data;
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+  };
+
+
+export {getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb, getNotificationsDb};

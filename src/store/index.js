@@ -16,20 +16,23 @@ export default createStore({
     setPosts(state, payload) {
       state.posts = payload
     },
-
     setPost(state, payload) {
       state.post = payload
     },
+    setLikeCount(state, { postId, likeCount }) {
+      let post = state.posts.find(post => post.postId === postId);
+      if (post) {
+        post.likeCount = likeCount;
+      }
+    },
   },
   actions: {
-    async getPosts({ commit }) { // Use state or remove it
+    async getPosts({ commit }) {
       let { data } = await axios.get('http://localhost:2000/posts')
       commit('setPosts', data)
-      // You can use state here if needed
     },
-
-    async getPost({ commit}, postId) {
-      console.log('Getting post with ID:', postId); 
+    async getPost({ commit }, postId) {
+      console.log('Getting post with ID:', postId);
       if (!postId) {
         console.error('Error: postId is undefined');
         return;
@@ -38,8 +41,8 @@ export default createStore({
         const response = await axios.get(`http://localhost:2000/posts/${postId}`);
         console.log('API response:', response.data);
         const post = response.data;
-        commit('setPost', post); 
-        return post; 
+        commit('setPost', post);
+        return post;
       } catch (error) {
         console.error('Error loading post:', error);
         if (error.response) {
@@ -59,7 +62,23 @@ export default createStore({
         }
       }
     },
+    async likePost({ commit }, { postId, userId }) {
+      try {
+        const response = await axios.post('http://localhost:2000/posts/like', { postId, userId });
+        const { likeCount } = response.data;
+        commit('setLikeCount', { postId, likeCount });
+        return likeCount;
+      } catch (error) {
+        console.error('Error liking post:', error);
+        toast("Error liking post. Please try again.", {
+          "theme": "auto",
+          "type": "error",
+          "position": "top-center",
+          "dangerouslyHTMLString": true
+        });
+      }
+    },
   },
-  modules: {
-  }
-})
+  modules: {}
+});
+

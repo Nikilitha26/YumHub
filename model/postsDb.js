@@ -23,12 +23,12 @@ const getPostDb = async (postID) => {
 };
 
 // Insert a new post into the database
-const insertPostDb = async (title, content, imageUrl, category, tags, likeCount, userID) => {
+const insertPostDb = async (userID,title, content, imageUrl, category, tags, likeCount) => {
     try {
         await pool.query(`
-            INSERT INTO posts (title, content, imageUrl, category, tags, likeCount, userID)
+            INSERT INTO posts (userID, title, content, imageUrl, category, tags, likeCount) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [title, content, imageUrl, category, JSON.stringify(tags), likeCount, userID]);
+        `, [userID,title, content, imageUrl, category, JSON.stringify(tags), likeCount]);
     } catch (error) {
         console.error('Error inserting post:', error);
         throw new Error('Database error while inserting post');

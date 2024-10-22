@@ -18,6 +18,7 @@ const getUsersDb = async () => {
 
 const getUserDb = async (emailAdd) => {
   let [data] = await pool.query('SELECT * FROM users WHERE emailAdd = ?', [emailAdd]);
+  console.log('User  data retrieved:', data); // Log the retrieved user data
   return data;
 }
 

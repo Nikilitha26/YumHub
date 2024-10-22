@@ -7,21 +7,23 @@ const router = express.Router();
 
 // Route to like a post
 router.post('/like', verifyAToken, async (req, res) => {
-    try {
-        const { postID } = req.body;
-        const userID = req.user.id; // Assuming the user ID is stored in the token
+  try {
+      if (!req.user || !req.user.id) {
+          return res.status(401).json({ message: 'Unauthorized: User not found' });
+      }
+      const { postID } = req.body;
+      const userID = req.user.id; // This should now work without errors
 
-        // Call the liking logic here
-        const likeResult = await likePost(userID, postID);
-        if (likeResult) {
-            res.json({ message: 'Post liked successfully' });
-        } else {
-            throw new Error('Error liking post');
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error liking post' });
-    }
+      const likeResult = await likePost(userID, postID);
+      if (likeResult) {
+          res.json({ message: 'Post liked successfully' });
+      } else {
+          throw new Error('Error liking post');
+      }
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error liking post' });
+  }
 });
 
 // Route to get notifications

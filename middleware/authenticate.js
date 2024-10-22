@@ -5,14 +5,14 @@ import {config} from 'dotenv'
 config()
 
 
-const checkUser = async (req, res) => {
+const checkUser  = async (req, res) => {
   const { emailAdd, userPass } = req.body;
   console.log('Checking user:', { emailAdd, userPass });
   
-  const user = (await getUserDb(emailAdd))[0];
+  const user = (await getUserDb(emailAdd))[0]; // Assuming this returns an array
   if (!user) {
-    console.error('User not found');
-    res.status(401).json({ error: 'User not found' });
+    console.error('User  not found');
+    res.status(401).json({ error: 'User  not found' });
     return;
   }
   
@@ -30,8 +30,20 @@ const checkUser = async (req, res) => {
   
   if (result) {
     console.log('Password matches');
-    let token = jwt.sign({ emailAdd: emailAdd }, process.env.SECRET_KEY, { expiresIn: '1h' });
-    res.json({ token: token, message: 'You have signed in!!' });
+    
+    // Create a token
+    let token = jwt.sign({id: user.userID,  emailAdd: emailAdd }, process.env.SECRET_KEY, { expiresIn: '1h' });
+    
+    // Return the user information along with the token
+    res.json({ 
+      token: token, 
+      user: {
+        userID: user.userID, // Adjust this according to your user schema
+        userRole: user.role, // Adjust this according to your user schema
+        // Include any other relevant user properties
+      },
+      message: 'You have signed in!!' 
+    });
   } else {
     console.error('Password incorrect');
     res.status(401).json({ error: 'Password incorrect' });
@@ -48,6 +60,7 @@ const verifyAToken = (req, res, next) => {
       } else if (req.headers.cookie) {
         token = req.headers.cookie.match(/token=([^;]*)/)[1];
       }
+      console.log('Token:', token);
       if (!token) {
         res.json({ message: 'No token provided' });
         return;

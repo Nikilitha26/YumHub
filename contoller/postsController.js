@@ -97,9 +97,9 @@ const likePost = async (userID, postID) => {
       await createNotificationDb(post.userID, userID, 'like', `liked your post`, postID);
       return post.likeCount;
   } catch (error) {
-      console.error(error);
-      throw new Error('Failed to like post');
-  }
+    console.error('Error liking post:', error); // Log the original error
+    throw new Error('Failed to like post');
+}
 };
 
 export {getPosts, getPost, createPost, deletePost, updatePost, likePost}

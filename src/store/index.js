@@ -3,6 +3,7 @@ import axios from 'axios'
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import {useCookies} from 'vue-cookies'
+import VueCookies from 'vue-cookies';
 import router from '@/router';
 /* eslint-disable */
 
@@ -11,12 +12,13 @@ axios.defaults.headers = $cookies.get('token')
 
 export default createStore({
   state: {
-    posts: null,
+    posts: [],
     post: null,
     token: null,
     userId: null,
     user: [],
     users: [],
+    userRole: null,
     isLoggedIn: false
   },
   getters: {
@@ -56,6 +58,10 @@ export default createStore({
 
     setUsers(state, users) {
       state.users = users;
+    },
+
+    setUserRole(state, userRole) {
+      state.userRole = userRole; // Ensure userRole is defined in the state
     },
 
     updateUser(state, updatedUser) {
@@ -164,26 +170,30 @@ export default createStore({
       
     // Users
 
-    async loginUser({ commit }, info) {
-      console.log(info)
+    async loginUser ({ commit }, info) {
+      console.log(info);
       try {
         const response = await axios.post('https://capstoneproject-1-9k8p.onrender.com/users/login', info);
-        console.log(response)
+        console.log(response);
         const token = response.data.token;
-        const refreshToken = response.data.refreshToken
+        const refreshToken = response.data.refreshToken;
         const userId = response.data.user.userID;
         const userRole = response.data.user.userRole; 
+    
         commit('setToken', token);
         commit('setRefreshToken', refreshToken);
         commit('setUserId', userId);
         commit('setUserRole', userRole); 
-        commit('setLoggedIn', false)
-        cookies.set('token', token);
-        cookies.set('refreshToken', refreshToken);
-        cookies.set('userId', userId);
+        commit('setLoggedIn', true); // Set to true to indicate the user is logged in
+    
+        // Use VueCookies to set cookies
+        VueCookies.set('token', token);
+        VueCookies.set('refreshToken', refreshToken);
+        VueCookies.set('userId', userId);
         if (userRole === 'Admin') {
-          cookies.set('role', 'Admin');
+          VueCookies.set('role', 'Admin');
         }
+    
         console.log('Token:', token);
         console.log('Refresh Token:', refreshToken);
         console.log('UserId:', userId);

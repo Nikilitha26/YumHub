@@ -37,7 +37,7 @@ export default {
   computed: {
     ...mapGetters(['getPosts']),
     posts() {
-      return this.getPosts || [];
+      return this.getPosts ? this.getPosts : [];
     },
   },
   async created() {
@@ -52,24 +52,19 @@ export default {
   },
   methods: {
     navigateToComments(postId) {
-      // Navigate to the comments section
       console.log('Navigate to comments for post:', postId);
     },
     toggleLike(post) {
-      // Ensure likeCount is a number
       if (typeof post.likeCount !== 'number') {
         post.likeCount = 0;
       }
-      // Toggle like status and update count
       post.liked = !post.liked;
       post.likeCount += post.liked ? 1 : -1;
     },
     sharePost(post) {
-      // Ensure sharesCount is a number
       if (typeof post.sharesCount !== 'number') {
         post.sharesCount = 0;
       }
-      // Increase share count
       post.sharesCount += 1;
       console.log('Share post:', post);
     }
@@ -109,10 +104,11 @@ h2 {
 }
 
 .fa-heart {
-  color: grey; /* Default color */
+  color: grey;
 }
 
 .liked {
   color: rgb(241, 44, 77);
 }
 </style>
+

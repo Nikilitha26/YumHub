@@ -134,7 +134,7 @@ export default createStore({
         return;
       }
       try {
-        const response = await axios.patch(`https://capstoneproject-1-9k8p.onrender.com/users/${userId}`, updatedUser, {
+        const response = await axios.patch(`http://localhost:2000/users/${userId}`, updatedUser, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -173,7 +173,7 @@ export default createStore({
     async loginUser ({ commit }, info) {
       console.log(info);
       try {
-        const response = await axios.post('https://capstoneproject-1-9k8p.onrender.com/users/login', info);
+        const response = await axios.post('http://localhost:2000/users/login', info);
         console.log(response);
         const token = response.data.token;
         const refreshToken = response.data.refreshToken;
@@ -223,7 +223,7 @@ export default createStore({
     
     async signupUser({ commit }, info) {
       try {
-        const response = await axios.post('https://capstoneproject-1-9k8p.onrender.com/users', info);
+        const response = await axios.post('http://localhost:2000/users', info);
         const token = response.data.token;
         const userId = response.data.userId;
         const userRole = response.data.userRole; 
@@ -260,7 +260,7 @@ export default createStore({
 
     async updateUser({ commit, state: { token } }, { userId, updatedUser }) {
       try {
-        const response = await axios.patch(`https://capstoneproject-1-9k8p.onrender.com/users/${userId}`, updatedUser, {
+        const response = await axios.patch(`http://localhost:2000/users/${userId}`, updatedUser, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -288,7 +288,7 @@ export default createStore({
       
     async getUserById({ commit }, userId) {
       try {
-        const response = await axios.get(`https://capstoneproject-1-9k8p.onrender.com/users/${userId}`);
+        const response = await axios.get(`http://localhost:2000/users/${userId}`);
         const user = response.data;
         if (!user) {
           throw new Error(`User with ID ${userId} not found`);
@@ -302,7 +302,7 @@ export default createStore({
 
       async getUsers({ commit }) {
         try {
-          const response = await axios.get('https://capstoneproject-1-9k8p.onrender.com/users');
+          const response = await axios.get('http://localhost:2000/users');
           commit('setUsers', response.data);
         } catch (error) {
           console.error(error);
@@ -311,7 +311,7 @@ export default createStore({
 
     async insertUser({ commit },newUser) {
       try {
-        const response = await axios.post('https://capstoneproject-1-9k8p.onrender.com/users', newUser);
+        const response = await axios.post('http://localhost:2000/users', newUser);
         commit('setUser', response.data);
         location.reload();
         toast("User added successfully!", {
@@ -338,7 +338,7 @@ export default createStore({
         if (!userId) {
           throw new Error('User ID is required');
         }
-        const apiUrl = `https://capstoneproject-1-9k8p.onrender.com/users/${userId}`;
+        const apiUrl = `http://localhost:2000/users/${userId}`;
         const response = await axios.delete(apiUrl, {
           headers: {
             Authorization: `Bearer ${state.token}`

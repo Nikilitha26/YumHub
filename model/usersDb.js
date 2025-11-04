@@ -39,9 +39,24 @@ const insertUserDb = async (firstName, lastName, userAge, Gender, userRole, emai
       `, [firstName, lastName, userAge, Gender, userRole, emailAdd, hashedPass, userProfile])
 }
 
+// const deleteUserDb = async (userID) => {
+//     const result = await pool.query('DELETE FROM users WHERE userID = ?', [userID])
+//   }
+
 const deleteUserDb = async (userID) => {
-    const result = await pool.query('DELETE FROM users WHERE userID = ?', [userID])
+  try {
+    // Delete all posts by user first
+    await pool.query('DELETE FROM posts WHERE userID = ?', [userID]);
+
+    // Now delete user
+    const [result] = await pool.query('DELETE FROM users WHERE userID = ?', [userID]);
+    return result;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
   }
+};
+
 
   const updateUserDb = async (userID, firstName, lastName, userAge, Gender, userRole, emailAdd, hashedPass, userProfile) => {
     await pool.query('UPDATE users SET firstName = ?, lastName = ?, userAge = ?, Gender = ?, userRole = ?, emailAdd = ?, userProfile = ?, userPass = ? WHERE userID = ?', 

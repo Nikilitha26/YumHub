@@ -4,15 +4,18 @@ import jwt from 'jsonwebtoken'
 import {config} from 'dotenv'
 config()
 
+// ...existing code...
+const SECRET = process.env.SECRET_KEY; // do NOT hardcode a production secret here
+// ...existing code...
 
 const checkUser  = async (req, res) => {
   const { emailAdd, userPass } = req.body;
   console.log('Checking user:', { emailAdd, userPass });
   
-  const user = (await getUserDb(emailAdd))[0]; // Assuming this returns an array
+  const user = (await getUserDb(emailAdd))[0];
   if (!user) {
-    console.error('User  not found');
-    res.status(401).json({ error: 'User  not found' });
+    console.error('User not found');
+    res.status(401).json({ error: 'User not found' });
     return;
   }
   
@@ -30,17 +33,20 @@ const checkUser  = async (req, res) => {
   
   if (result) {
     console.log('Password matches');
+
+    if (!SECRET) {
+      console.error('SECRET_KEY not set in environment');
+      res.status(500).json({ error: 'Server misconfiguration: SECRET_KEY not set' });
+      return;
+    }
     
-    // Create a token
-    let token = jwt.sign({id: user.userID,  emailAdd: emailAdd }, process.env.SECRET_KEY, { expiresIn: '1h' });
+    let token = jwt.sign({id: user.userID,  emailAdd: emailAdd }, SECRET, { expiresIn: '1h' });
     
-    // Return the user information along with the token
     res.json({ 
       token: token, 
       user: {
-        userID: user.userID, // Adjust this according to your user schema
-        userRole: user.role, // Adjust this according to your user schema
-        // Include any other relevant user properties
+        userID: user.userID,
+        userRole: user.userRole // use actual field name from DB
       },
       message: 'You have signed in!!' 
     });
@@ -50,33 +56,39 @@ const checkUser  = async (req, res) => {
   }
 };
 
-
-
+// ...existing code...
 const verifyAToken = (req, res, next) => {
-    try {
-      let token;
-      if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-        token = req.headers.authorization.split(' ')[1];
-      } else if (req.headers.cookie) {
-        token = req.headers.cookie.match(/token=([^;]*)/)[1];
-      }
-      console.log('Token:', token);
-      if (!token) {
-        res.json({ message: 'No token provided' });
+  try {
+    if (!SECRET) {
+      console.error('SECRET_KEY not set in environment');
+      res.status(500).json({ error: 'Server misconfiguration: SECRET_KEY not set' });
+      return;
+    }
+
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    } else if (req.headers.cookie) {
+      const m = req.headers.cookie.match(/token=([^;]*)/);
+      token = m && m[1];
+    }
+    console.log('Token:', token);
+    if (!token) {
+      res.status(401).json({ message: 'No token provided' });
+      return;
+    }
+    jwt.verify(token, SECRET, (err, decoded) => {
+      if (err) {
+        res.status(401).json({ message: 'Token invalid or expired' });
         return;
       }
-      jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
-        if (err) {
-          res.json({ message: 'Token expired' });
-          return;
-        }
-        req.body.user = decoded.emailAdd;
-        next();
-      });
-    } catch (err) {
-      console.error(err);
-      res.status(500).send('Error verifying token');
-    }
-  };
+      req.body.user = decoded.emailAdd;
+      next();
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error verifying token');
+  }
+};
     
-    export {checkUser, verifyAToken}
+export {checkUser, verifyAToken}

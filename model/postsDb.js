@@ -14,21 +14,24 @@ const getPostsDb = async () => {
 // Fetch a single post by ID
 const getPostDb = async (postID) => {
     try {
-        const [[data]] = await pool.query('SELECT * FROM posts WHERE postID = ?', [postID]);
-        return data;
+        const [rows] = await pool.query('SELECT * FROM posts WHERE postID = ?', [postID]);
+        if (rows.length === 0) return null;
+        return rows[0]; 
     } catch (error) {
         console.error('Error fetching post:', error);
         throw new Error('Database error while fetching post');
     }
 };
 
+
 // Insert a new post into the database
-const insertPostDb = async (userID,title, content, imageUrl, category, tags, likeCount) => {
+const insertPostDb = async (userID, title, content, imageUrl, category, tags, likeCount) => {
     try {
         await pool.query(`
             INSERT INTO posts (userID, title, content, imageUrl, category, tags, likeCount) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `, [userID,title, content, imageUrl, category, JSON.stringify(tags), likeCount]);
+        console.log('User ID:', userID);
     } catch (error) {
         console.error('Error inserting post:', error);
         throw new Error('Database error while inserting post');
@@ -62,10 +65,7 @@ const updatePostDb = async (postID, title, content, imageUrl, category, tags, li
 // Like a post in the database
 const likePostDb = async (userID, postID) => {
     try {
-        // Insert a new record into the likes table
         await pool.query('INSERT INTO likes (userID, postID) VALUES (?, ?)', [userID, postID]);
-
-        // Update the post's like count
         await pool.query('UPDATE posts SET likeCount = likeCount + 1 WHERE postID = ?', [postID]);
         return true;
     } catch (error) {

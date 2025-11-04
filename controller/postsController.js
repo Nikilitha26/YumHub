@@ -22,16 +22,42 @@ const getPost = async (req, res) => {
 
 // Create a new post
 const createPost = async (req, res) => {
-  const { title, content, imageUrl, category, tags } = req.body;
-  const userID = req.user.id; // Get user ID from the verified token
+    try {
+        if (!req.body || !req.user) {
+            return res.status(400).json({ 
+                message: 'Invalid request: missing body or user authentication' 
+            });
+        }
 
-  try {
-      await insertPostDb(title, content, imageUrl, category, tags, 0, userID); // Assuming likeCount starts at 0
-      res.status(201).json({ message: 'Post created successfully' });
-  } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error creating post' });
-  }
+        const { title, content, imageUrl, category, tags } = req.body;
+        const userID = req.user.id;
+        
+        // validation
+        if (!title || !content) {
+            return res.status(400).json({ 
+                message: 'Title and content are required' 
+            });
+        }
+
+        await insertPostDb(
+            userID,
+            title,
+            content,
+            imageUrl || '',
+            category || 'General',
+            tags || [],
+            0  
+        );
+
+        return res.status(201).json({ 
+            message: 'Post created successfully' 
+        });
+    } catch (error) {
+        console.error('Error creating post:', error);
+        return res.status(500).json({ 
+            message: 'Error creating post' 
+        });
+    }
 };
 
 
@@ -39,7 +65,7 @@ const createPost = async (req, res) => {
 const updatePost = async (req, res) => {
   const postId = req.params.id;
   const userID = req.user.id; // Get user ID from the verified token
-  
+  console.log('updatePost → postId:', postId);
   try {
     const post = await getPostDb(postId);
     if (!post) {
@@ -62,7 +88,7 @@ const updatePost = async (req, res) => {
 // Delete a post
 const deletePost = async (req, res) => {
   const postId = req.params.id;
-  const userID = req.user.id; // Get user ID from the verified token
+  const userID = req.user.id; 
 
   try {
       const post = await getPostDb(postId);
@@ -74,8 +100,8 @@ const deletePost = async (req, res) => {
           return res.status(403).json({ error: 'Forbidden: You can only delete your own posts' });
       }
 
-      await deletePostDb(postId);
-      res.status(204).send(); // No content to send back
+    await deletePostDb(postId);
+    res.status(200).json({ message: 'Post deleted successfully' });
   } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Error deleting post' });

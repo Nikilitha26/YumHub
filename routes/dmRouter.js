@@ -1,5 +1,5 @@
 import express from 'express';
-import { sendMessage, getMessages, getConversation, deleteMessage } from '../contoller/dmController.js';
+import { sendMessage, getMessages, getConversation, deleteMessage } from '../controller/dmController.js';
 
 const router = express.Router();
 

@@ -2,6 +2,8 @@ import { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePo
 import { getUsersDb } from '../model/usersDb.js'
 import { pool } from '../config/config.js';
 
+            // POSTS
+
 const getPosts = async (req, res) => {
     res.json(await getPostsDb())
 }
@@ -20,7 +22,6 @@ const getPost = async (req, res) => {
       res.status(500).json({ message: 'Error fetching post' });
   }
 };
-
 
 // Create a new post
 const createPost = async (req, res) => {
@@ -61,11 +62,10 @@ const createPost = async (req, res) => {
   }
 };
 
-
 // Update a post
 const updatePost = async (req, res) => {
   const postId = req.params.id;
-  const userID = req.user.id; // Get user ID from the verified token
+  const userID = req.user.id; 
   console.log('updatePost → postId:', postId);
   try {
     const post = await getPostDb(postId);
@@ -85,7 +85,6 @@ const updatePost = async (req, res) => {
     res.status(500).json({ message: 'Error updating post' });
   }
 };
-
 
 // Delete a post
 const deletePost = async (req, res) => {
@@ -109,7 +108,6 @@ const deletePost = async (req, res) => {
       res.status(500).json({ message: 'Error deleting post' });
   }
 };
-
 
 // Like a post
 const likePost = async (userID, postID) => {
@@ -149,6 +147,9 @@ const likePost = async (userID, postID) => {
   }
 };
 
+
+                    // COMMENTS
+
 // Add a comment
 const addComment = async (req, res) => {
     const { postID, commentText, parentCommentID } = req.body;
@@ -174,7 +175,6 @@ const addComment = async (req, res) => {
     }
 };
 
-
 // get All comments for a post
 const getAllComments = async (req, res) => {
     const postID = req.params.postID;
@@ -188,7 +188,6 @@ const getAllComments = async (req, res) => {
     }
 };
 
-
 // Get comments
 const getComments = async (req, res) => {
     try {
@@ -200,7 +199,6 @@ const getComments = async (req, res) => {
         res.status(500).json({ message: 'Error fetching comments' });
     }
 };
-
 
 // Edit a comment
 const editComment = async (req, res) => {
@@ -281,8 +279,6 @@ const replyComment = async (req, res) => {
         res.status(500).json({ message: 'Error adding reply' });
     }
 };
-
-
 
 // Like or Unlike a comment
 const likeComment = async (req, res) => {
@@ -383,6 +379,6 @@ const editSharedPost = async (req, res) => {
   }
 };
 
-
+                    
 
 export {getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, deleteCommentDb, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost, };

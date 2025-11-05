@@ -1,4 +1,7 @@
 import { pool } from "../config/config.js";
+           
+
+            // Posts
 
 // Fetch all posts from the database
 const getPostsDb = async () => {
@@ -22,7 +25,6 @@ const getPostDb = async (postID) => {
         throw new Error('Database error while fetching post');
     }
 };
-
 
 // Insert a new post into the database
 const insertPostDb = async (userID, title, content, imageUrl, category, tags, likeCount) => {
@@ -74,6 +76,9 @@ const likePostDb = async (userID, postID) => {
     }
 };
 
+
+            // Notifications
+
 // Create a notification in the database
 const createNotificationDb = async (notificationUserId, userId, notificationType, notificationText, postId) => {
     try {
@@ -109,6 +114,7 @@ const getNotificationsDb = async (userID) => {
 };
 
 
+            // Comments
 
 // Insert a comment
 const insertCommentDb = async (postID, userID, commentText, parentCommentID) => {
@@ -210,7 +216,6 @@ const replyCommentDb = async (userID, postID, parentCommentID, commentText) => {
   }
 };
 
-
 // Like or Unlike a comment
 const likeCommentDb = async (userID, commentID) => {
     try {
@@ -245,8 +250,6 @@ const likeCommentDb = async (userID, commentID) => {
         throw new Error('Database error while liking/unliking comment');
     }
 };
-
-
 
 // Share a post (creates a new post, optional caption)
 const sharePostDb = async (userID, originalPostID, caption) => {
@@ -303,5 +306,4 @@ const editSharedPostDb = async (postID, newCaption) => {
 }
 
 
-
-export { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb, getNotificationsDb, insertCommentDb, getCommentsDb, updateCommentDb, deleteCommentDb,replyCommentDb, getCommentByIdDb, likeCommentDb, sharePostDb, deleteSharedPostDb, editSharedPostDb };
+export { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb, getNotificationsDb, insertCommentDb, getCommentsDb, updateCommentDb, deleteCommentDb,replyCommentDb, getCommentByIdDb, likeCommentDb, sharePostDb, deleteSharedPostDb, editSharedPostDb, };

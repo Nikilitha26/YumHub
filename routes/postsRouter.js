@@ -1,11 +1,38 @@
 import express from 'express';
-import { getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost } from '../controller/postsController.js';
+import { getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost,  } from '../controller/postsController.js';
 import { verifyAToken } from '../middleware/authenticate.js';
 import { getNotificationsDb, getPostDb } from '../model/postsDb.js';
 
 
 
 const router = express.Router();
+
+
+                // POSTS
+
+// Route to get all posts
+router.get('/', getPosts);
+
+// Route to create a post
+router.post('/', verifyAToken, createPost);
+
+// Route to get a specific post
+router.get('/:id', getPost);
+
+// Route to update a post
+router.patch('/:id', verifyAToken, updatePost);
+
+// Route to delete a post
+router.delete('/:id', verifyAToken, deletePost);
+
+// Route to share a post
+router.post('/:postID/share', verifyAToken, sharePost);
+
+// Delete a shared post
+router.delete('/shared/:id', verifyAToken, deleteSharedPost);
+
+// Edit a shared post
+router.patch('/shared/:id', verifyAToken, editSharedPost);
 
 // Route to like a post
 router.post('/:id/like', verifyAToken, async (req, res) => {
@@ -25,6 +52,7 @@ router.post('/:id/like', verifyAToken, async (req, res) => {
   }
 });
 
+                // NOTIFICATIONS
 
 // Route to get notifications
 router.get('/notifications', verifyAToken, async (req, res) => {
@@ -38,34 +66,8 @@ router.get('/notifications', verifyAToken, async (req, res) => {
     }
 });
 
-// Route to get all posts
-router.get('/', getPosts);
 
-
-// Route to create a post
-router.post('/', verifyAToken, createPost);
-
-
-// Route to get a specific post
-router.get('/:id', getPost);
-
-
-// Route to update a post
-router.patch('/:id', verifyAToken, updatePost);
-
-
-// Route to delete a post
-router.delete('/:id', verifyAToken, deletePost);
-
-// Route to share a post
-router.post('/:postID/share', verifyAToken, sharePost);
-
-// Delete a shared post
-router.delete('/shared/:id', verifyAToken, deleteSharedPost);
-
-// Edit a shared post
-router.patch('/shared/:id', verifyAToken, editSharedPost);
-
+                // COMMENTS
 
 // Add a comment
 router.post('/:id/comments', verifyAToken, addComment);
@@ -87,7 +89,6 @@ router.post('/comments/reply', verifyAToken, replyComment);
 
 // Like or Unlike a comment
 router.post('/comments/:id/like', verifyAToken, likeComment);
-
-
+              
 
 export default router;

@@ -173,7 +173,8 @@ const deleteNotification = async (req, res) => {
 
 // Add a comment
 const addComment = async (req, res) => {
-    const { postID, commentText, parentCommentID } = req.body;
+    const postID = req.params.id; // <-- get it from URL
+    const { commentText, parentCommentID } = req.body;
     const userID = req.user.id;
 
     if (!commentText || !postID) {

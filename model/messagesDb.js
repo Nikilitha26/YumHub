@@ -49,4 +49,36 @@ const getUserConversationsDb = async (userId) => {
     return rows;
 };
 
-export { getOrCreateConversation, sendMessageDb, getMessagesDb, getUserConversationsDb };
+// Get a single message by ID
+const getMessageByIdDb = async (id) => {
+    try {
+        const [[message]] = await pool.query('SELECT * FROM messages WHERE id = ?', [id]);
+        return message;
+    } catch (error) {
+        console.error('Error fetching message:', error);
+        throw new Error('Database error while fetching message');
+    }
+};
+
+// Update a message
+const updateMessageDb = async (id, messageText) => {
+    try {
+        await pool.query('UPDATE messages SET message_text = ?, updatedAt = NOW() WHERE id = ?', [messageText, id]);
+    } catch (error) {
+        console.error('Error updating message:', error);
+        throw new Error('Database error while updating message');
+    }
+};
+
+// Delete a message
+const deleteMessageDb = async (id) => {
+    try {
+        await pool.query('DELETE FROM messages WHERE id = ?', [id]);
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        throw new Error('Database error while deleting message');
+    }
+};
+
+
+export { getOrCreateConversation, sendMessageDb, getMessagesDb, getUserConversationsDb , deleteMessageDb , updateMessageDb, getMessageByIdDb};

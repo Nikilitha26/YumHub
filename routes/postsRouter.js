@@ -1,5 +1,5 @@
 import express from 'express';
-import { getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost,  } from '../controller/postsController.js';
+import { getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost, deleteNotification  } from '../controller/postsController.js';
 import { verifyAToken } from '../middleware/authenticate.js';
 import { getNotificationsDb, getPostDb } from '../model/postsDb.js';
 
@@ -65,6 +65,8 @@ router.get('/notifications', verifyAToken, async (req, res) => {
         res.status(500).json({ message: 'Error getting notifications' });
     }
 });
+
+router.delete('/notifications/:id', verifyAToken, deleteNotification);
 
 
                 // COMMENTS

@@ -1,5 +1,5 @@
 import express from 'express';
-import { sendMessage, getMessages, getUserConversations,  } from '../controller/messagesController.js';
+import { sendMessage, getMessages, getUserConversations, deleteMessage, updateMessage  } from '../controller/messagesController.js';
 import { verifyAToken } from '../middleware/authenticate.js';
 
 const router = express.Router();
@@ -11,6 +11,12 @@ router.post('/send', verifyAToken, sendMessage);
 router.get('/conversation/:conversationId', verifyAToken, getMessages);
 
 // Get user's conversations
-router.get('/conversations', verifyAToken, getUserConversations);  
+router.get('/conversations', verifyAToken, getUserConversations); 
+
+// Delete a message
+router.delete('/delete/:id', verifyAToken, deleteMessage);
+
+// Update a message
+router.patch('/update/:id', verifyAToken, updateMessage);
 
 export default router;

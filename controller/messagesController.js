@@ -1,4 +1,4 @@
-import { getOrCreateConversation, sendMessageDb, getMessagesDb, getUserConversationsDb } from "../model/messagesDb.js";
+import { getOrCreateConversation, sendMessageDb, getMessagesDb, getUserConversationsDb, getMessageByIdDb, deleteMessageDb, updateMessageDb,  } from "../model/messagesDb.js";
 
 // Send a message
 const sendMessage = async (req, res) => {
@@ -47,4 +47,42 @@ const getUserConversations = async (req, res) => {
     }
 };
 
-export { sendMessage, getMessages, getUserConversations };
+// Update a message (only if sender)
+const updateMessage = async (req, res) => {
+    const messageID = req.params.id;
+    const userID = req.user.id;
+    const { message_text } = req.body;
+
+    try {
+        const message = await getMessageByIdDb(messageID);
+        if (!message) return res.status(404).json({ message: 'Message not found' });
+        if (message.sender_id!== userID) return res.status(403).json({ message: 'Forbidden: You can only edit your own messages' });
+
+        await updateMessageDb(messageID, message_text);
+        res.json({ message: 'Message updated successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to update message' });
+    }
+};
+
+// Delete a message (only if sender)
+const deleteMessage = async (req, res) => {
+    const messageID = req.params.id;
+    const userID = req.user.id;
+
+    try {
+        const message = await getMessageByIdDb(messageID);
+        if (!message) return res.status(404).json({ message: 'Message not found' });
+        if (message.sender_id !== userID) return res.status(403).json({ message: 'Forbidden: You can only delete your own messages' });
+
+        await deleteMessageDb(messageID);
+        res.json({ message: 'Message deleted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to delete message' });
+    }
+};
+
+
+export { sendMessage, getMessages, getUserConversations, deleteMessage, updateMessage };

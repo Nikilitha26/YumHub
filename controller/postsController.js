@@ -1,4 +1,4 @@
-import { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb, insertCommentDb, getCommentsDb, getCommentByIdDb, deleteCommentDb, updateCommentDb, replyCommentDb, likeCommentDb, sharePostDb, deleteSharedPostDb, editSharedPostDb, } from '../model/postsDb.js'
+import { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb, insertCommentDb, getCommentsDb, getCommentByIdDb, deleteCommentDb, updateCommentDb, replyCommentDb, likeCommentDb, sharePostDb, deleteSharedPostDb, editSharedPostDb, deleteNotificationDb } from '../model/postsDb.js'
 import { getUsersDb } from '../model/usersDb.js'
 import { pool } from '../config/config.js';
 
@@ -144,6 +144,27 @@ const likePost = async (userID, postID) => {
   } catch (error) {
     console.error('Error liking/unliking post:', error);
     throw new Error('Failed to like/unlike post');
+  }
+};
+
+
+                    //NOTIFICATIONS
+
+// Delete a notification (only if it belongs to the user)
+const deleteNotification = async (req, res) => {
+  const notificationId = req.params.id;
+  const userId = req.user.id;
+
+  try {
+    const deleted = await deleteNotificationDb(notificationId, userId);
+    if (!deleted) {
+      return res.status(403).json({ message: 'Forbidden: You can only delete your own notifications' });
+    }
+
+    res.status(200).json({ message: 'Notification deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    res.status(500).json({ message: 'Failed to delete notification' });
   }
 };
 
@@ -381,4 +402,4 @@ const editSharedPost = async (req, res) => {
 
                     
 
-export {getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, deleteCommentDb, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost, };
+export {getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, deleteCommentDb, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost, deleteNotification, };

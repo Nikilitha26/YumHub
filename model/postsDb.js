@@ -113,6 +113,22 @@ const getNotificationsDb = async (userID) => {
   }
 };
 
+// Delete a notification
+const deleteNotificationDb = async (notificationId, userId) => {
+  try {
+    const [result] = await pool.query(
+      'DELETE FROM notifications WHERE id = ? AND user_id = ?',
+      [notificationId, userId]
+    );
+
+    return result.affectedRows > 0; // true if deleted, false otherwise
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    throw new Error('Database error while deleting notification');
+  }
+};
+
+
 
             // Comments
 
@@ -306,4 +322,4 @@ const editSharedPostDb = async (postID, newCaption) => {
 }
 
 
-export { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb, getNotificationsDb, insertCommentDb, getCommentsDb, updateCommentDb, deleteCommentDb,replyCommentDb, getCommentByIdDb, likeCommentDb, sharePostDb, deleteSharedPostDb, editSharedPostDb, };
+export { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb, getNotificationsDb, insertCommentDb, getCommentsDb, updateCommentDb, deleteCommentDb,replyCommentDb, getCommentByIdDb, likeCommentDb, sharePostDb, deleteSharedPostDb, editSharedPostDb, deleteNotificationDb, };

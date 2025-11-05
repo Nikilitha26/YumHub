@@ -87,14 +87,71 @@
                 <td>Edits all information of a post by id</td>
             </tr>
             <tr>
-                <td>/posts/like</td>
+                <td>/posts/:id/like</td>
                 <td>POST</td>
                 <td>Likes a post</td>
+            </tr>
+
+             <tr>
+                <th colspan="3">Shared Posts Table</th>
+            </tr>
+            <tr>
+                <td>/posts/:postID/share</td>
+                <td>POST</td>
+                <td>Shares a post</td>
+            </tr>
+            <tr>
+                <td>/posts/shared/:id</td>
+                <td>DELETE</td>
+                <td>Deletes a shared post</td>
+            </tr>
+            <tr>
+                <td>/posts/shared/:id</td>
+                <td>PATCH</td>
+                <td>Edits a shared post</td>
+            </tr>
+
+            <tr>
+                <th colspan="3">Notification Table</th>
             </tr>
             <tr>
                 <td>/posts/notifications</td>
                 <td>GET</td>
                 <td>Gets user's notifications</td>
+            </tr>
+            
+            <tr>
+                <th colspan="3">Post Comments Table</th>
+            </tr>
+            <tr>
+                <td>/posts/:id/comments</td>
+                <td>GET</td>
+                <td>Fetch all comments for a post</td>
+            </tr>
+            <tr>
+                <td>/posts/:id/comments</td>
+                <td>POST</td>
+                <td>Add a comment (auth required)</td>
+            </tr>
+            <tr>
+                <td>/posts/comments/:id</td>
+                <td>PATCH</td>
+                <td>Update a comment </td>
+            </tr>
+            <tr>
+                <td>/posts/comments/:id</td>
+                <td>DELETE</td>
+                <td>Delete a comment </td>
+            </tr>
+            <tr>
+                <td>/posts/comments/reply</td>
+                <td>POST</td>
+                <td>Reply to a comment </td>
+            </tr>
+            <tr>
+                <td>/posts/comments/:id/like</td>
+                <td>POST</td>
+                <td>Likes a comment </td>
             </tr>
         </tbody>
     </table>

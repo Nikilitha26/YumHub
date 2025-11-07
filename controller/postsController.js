@@ -1,5 +1,6 @@
 import { getPostsDb, getPostDb, insertPostDb, deletePostDb, updatePostDb, likePostDb, createNotificationDb, insertCommentDb, getCommentsDb, getCommentByIdDb, deleteCommentDb, updateCommentDb, replyCommentDb, likeCommentDb, sharePostDb, deleteSharedPostDb, editSharedPostDb, deleteNotificationDb } from '../model/postsDb.js'
 import { getUsersDb } from '../model/usersDb.js'
+import{getUserDbById} from '../model/usersDb.js'
 import { pool } from '../config/config.js';
 
             // POSTS
@@ -134,7 +135,8 @@ const likePost = async (userID, postID) => {
       liked = true;
 
       // Create a notification for the post owner
-      await createNotificationDb(post.userID, userID, 'like', 'liked your post', postID);
+      await createNotificationDb(post.userID, userID, 'like', `${req.user.firstName} liked your post`, postID);
+
     }
 
     // Update post likeCount in posts table
@@ -173,28 +175,37 @@ const deleteNotification = async (req, res) => {
 
 // Add a comment
 const addComment = async (req, res) => {
-    const postID = req.params.id; // <-- get it from URL
-    const { commentText, parentCommentID } = req.body;
-    const userID = req.user.id;
+  try {
+    const { commentText, parentCommentID = null } = req.body;
+    const postID = req.params.id;
+    const userID = req.user.id; // from verifyAToken middleware
 
-    if (!commentText || !postID) {
-        return res.status(400).json({ message: 'Comment text and postID are required' });
+    if (!postID || !userID || !commentText) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    try {
-        await insertCommentDb(postID, userID, commentText, parentCommentID || null);
+    // Insert comment into DB and get comment ID
+    const commentID = await insertCommentDb(postID, userID, commentText, parentCommentID);
 
-        // Notify post owner if commenter is not the owner
-        const post = await getPostDb(postID);
-        if (post.userID !== userID) {
-            await createNotificationDb(post.userID, userID, 'comment', `${req.user.firstName} commented on your post`, postID);
-        }
+    // Fetch user info
+    const userData = await getUserDbById(userID);
+    const user = userData[0]; // first item in the array
+    const userName = user ? `${user.firstName} ${user.lastName}` : "Unknown";
 
-        res.status(201).json({ message: 'Comment added successfully' });
-    } catch (error) {
-        console.error('Error adding comment:', error);
-        res.status(500).json({ message: 'Failed to add comment' });
-    }
+    // Return full comment object including userName
+    res.json({
+      commentID,
+      postID,
+      userID,
+      userName,
+      commentText,
+      parentCommentID,
+      createdAt: new Date()
+    });
+  } catch (err) {
+    console.error("Error adding comment:", err);
+    res.status(500).json({ message: "Error adding comment" });
+  }
 };
 
 // get All comments for a post

@@ -38,7 +38,7 @@ const checkUser  = async (req, res) => {
       return;
     }
     
-    let token = jwt.sign({id: user.userID,  emailAdd: emailAdd }, SECRET, { expiresIn: '1h' });
+    let token = jwt.sign({id: user.userID,  emailAdd: emailAdd, firstName: user.firstName, lastName: user.lastName }, SECRET, { expiresIn: '1h' });
     
     res.json({ 
       token: token, 
@@ -70,7 +70,9 @@ const verifyAToken = (req, res, next) => {
             }
             req.user = {
                 id: decoded.id,
-                emailAdd: decoded.emailAdd
+                emailAdd: decoded.emailAdd,
+                firstName: decoded.firstName,
+                lastName: decoded.lastName
             };
             next();
         });

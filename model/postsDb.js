@@ -133,50 +133,67 @@ const deleteNotificationDb = async (notificationId, userId) => {
             // Comments
 
 // Insert a comment
-const insertCommentDb = async (postID, userID, commentText, parentCommentID) => {
-    try {
-        await pool.query(`
-            INSERT INTO comments (postID, userID, commentText, parentCommentID)
-            VALUES (?, ?, ?, ?)
-        `, [postID, userID, commentText, parentCommentID]);
-    } catch (error) {
-        console.error('Error inserting comment:', error);
-        throw new Error('Database error while inserting comment');
-    }
+const insertCommentDb = async (postID, userID, commentText) => {
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO comments (postID, userID, commentText, createdAt)
+       VALUES (?, ?, ?, NOW())`,
+      [postID, userID, commentText]
+    );
+
+    const commentID = result.insertId;
+
+    // ✅ Fetch the inserted comment with user's name
+    const [rows] = await pool.query(
+      `SELECT c.commentID, c.postID, c.userID, c.commentText, c.createdAt,
+              u.firstName, u.lastName
+       FROM comments c
+       JOIN users u ON c.userID = u.userID
+       WHERE c.commentID = ?`,
+      [commentID]
+    );
+
+    return rows[0];
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    throw error;
+  }
 };
 
 // Get comments for a post
 const getCommentsDb = async (postID) => {
   try {
-    const [comments] = await pool.query(`
-      SELECT c.commentID, c.commentText, c.createdAt, c.parentCommentID, u.userID, u.firstName, u.lastName
+    const [rows] = await pool.query(`
+      SELECT c.commentID, c.postID, c.userID, c.commentText, c.parentCommentID, c.createdAt,
+             u.firstName, u.lastName
       FROM comments c
       JOIN users u ON c.userID = u.userID
       WHERE c.postID = ?
       ORDER BY c.createdAt ASC
     `, [postID]);
 
-    // Optional: group replies under their parent comment
-    const commentMap = {};
-    const topLevelComments = [];
-
-    comments.forEach(comment => {
-      comment.replies = [];
-      commentMap[comment.commentID] = comment;
-
-      if (comment.parentCommentID) {
-        commentMap[comment.parentCommentID]?.replies.push(comment);
-      } else {
-        topLevelComments.push(comment);
-      }
-    });
-
-    return topLevelComments;
+    return rows;
   } catch (error) {
     console.error('Error fetching comments:', error);
     throw new Error('Database error while fetching comments');
   }
 };
+
+export const getCommentCountDb = async (postID) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT COUNT(*) as count
+      FROM comments
+      WHERE postID = ?
+    `, [postID]);
+    return rows[0].count;
+  } catch (error) {
+    console.error('Error fetching comment count:', error);
+    return 0;
+  }
+};
+
+
 // get comment by ID
 const getCommentByIdDb = async (commentID) => {
     try {
@@ -190,6 +207,18 @@ const getCommentByIdDb = async (commentID) => {
         throw new Error('Database error while fetching comment');
     }
 };
+
+export const getCommentById = async (commentID) => {
+  const [rows] = await db.execute(
+    `SELECT c.commentID, c.commentText, c.userID, CONCAT(u.firstName, ' ', u.lastName) AS userName, c.createdAt
+     FROM comments c
+     JOIN users u ON c.userID = u.id
+     WHERE c.commentID = ?`,
+    [commentID]
+  );
+  return rows[0]; // return single comment object
+};
+
 
 
 // Update a comment

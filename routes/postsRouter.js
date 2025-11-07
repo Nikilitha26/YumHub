@@ -78,7 +78,7 @@ router.post('/:id/comments', verifyAToken, addComment);
 router.get('/:id/comments', getComments);
 
 // get All comments for a post
-router.get('/:id/comments', getAllComments);
+// router.get('/:id/comments', getAllComments);
 
 // Edit comment
 router.patch('/comments/:id', verifyAToken, editComment);

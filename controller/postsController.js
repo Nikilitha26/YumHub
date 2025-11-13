@@ -5,9 +5,34 @@ import { pool } from '../config/config.js';
 
             // POSTS
 
+// const getPosts = async (req, res) => {
+//   try {
+//     const userID = req.user?.id; // safe optional chaining
+//     const posts = await getPostsDb(userID);
+//     res.json(posts);
+//   } catch (err) {
+//     console.error('Error fetching posts:', err);
+//     res.status(500).json({ message: 'Failed to fetch posts' });
+//   }
+// };
+
 const getPosts = async (req, res) => {
-    res.json(await getPostsDb())
-}
+  try {
+    const userID = req.user ? req.user.userID : null;
+    const posts = await getPostsDb(userID);
+
+    const formattedPosts = posts.map(post => ({
+      ...post,
+      liked: !!post.likedByUser,
+      likeCount: post.likeCount || 0
+    }));
+
+    res.json(formattedPosts);
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    res.status(500).json({ message: 'Failed to fetch posts' });
+  }
+};
 
 // Get a specific post by ID
 const getPost = async (req, res) => {
@@ -66,17 +91,18 @@ const createPost = async (req, res) => {
 // Update a post
 const updatePost = async (req, res) => {
   const postId = req.params.id;
-  const userID = req.user.id; 
+  const userID = req.user.userID;
+
   console.log('updatePost → postId:', postId);
   try {
     const post = await getPostDb(postId);
     if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
-    
-    if (post.userID !== userID) {
-      return res.status(403).json({ error: 'Forbidden: You can only edit your own posts' });
-    }
+  if (Number(post.userID) !== Number(userID)) {
+    return res.status(403).json({ error: 'Forbidden: You can only edit your own posts' });
+  }
+
     
     const { title, content, imageUrl, category, tags, likeCount } = req.body;
     await updatePostDb(postId, title || post.title, content || post.content, imageUrl || post.imageUrl, category || post.category, tags || post.tags, likeCount || post.likeCount);
@@ -111,7 +137,7 @@ const deletePost = async (req, res) => {
 };
 
 // Like a post
-const likePost = async (userID, postID) => {
+const likePost = async (userID, userFirstName, postID) => {
   try {
     const post = await getPostDb(postID);
     if (!post) throw new Error('Post not found');
@@ -124,28 +150,129 @@ const likePost = async (userID, postID) => {
 
     let liked;
     if (rows.length > 0) {
-      // User already liked → unlike
+      // Unlike
       await pool.query('DELETE FROM likes WHERE userID = ? AND postID = ?', [userID, postID]);
       post.likeCount = Math.max(post.likeCount - 1, 0);
       liked = false;
     } else {
-      // User has not liked → like
+      // Like
       await pool.query('INSERT INTO likes (userID, postID) VALUES (?, ?)', [userID, postID]);
       post.likeCount++;
       liked = true;
 
-      // Create a notification for the post owner
-      await createNotificationDb(post.userID, userID, 'like', `${req.user.firstName} liked your post`, postID);
-
+      if (post.userID !== userID) {
+        await createNotificationDb(
+          post.userID,
+          userID,
+          'like',
+          `${userFirstName} liked your post`,
+          postID
+        );
+      }
     }
 
-    // Update post likeCount in posts table
+    // Update likeCount in posts table
     await updatePostDb(postID, post.title, post.content, post.imageUrl, post.category, post.tags, post.likeCount);
 
     return { likeCount: post.likeCount, liked };
   } catch (error) {
     console.error('Error liking/unliking post:', error);
     throw new Error('Failed to like/unlike post');
+  }
+};
+
+// Share a post
+const sharePost = async (req, res) => {
+  try {
+    const userID = req.user.userID; 
+    const { caption } = req.body;
+    const { postID } = req.params;
+
+    // Get the original post
+    const [originalRows] = await pool.query(`SELECT * FROM posts WHERE postID = ?`, [postID]);
+    if (originalRows.length === 0) return res.status(404).json({ message: "Post not found" });
+
+    const original = originalRows[0];
+
+    // Create new post referencing shared one
+    await pool.query(
+      `INSERT INTO posts (userID, title, content, imageUrl, sharedFrom, createdAt)
+       VALUES (?, ?, ?, ?, ?, NOW())`,
+      [userID, caption || original.title, original.content, original.imageUrl, original.userID]
+    );
+
+    // Increment share count
+    await pool.query(`UPDATE posts SET shareCount = shareCount + 1 WHERE postID = ?`, [postID]);
+
+    // Return updated post
+    const [updatedRows] = await pool.query(`SELECT * FROM posts WHERE postID = ?`, [postID]);
+    res.json(updatedRows[0]);
+
+  } catch (err) {
+    console.error("Error sharing post:", err);
+    res.status(500).json({ message: "Failed to share post" });
+  }
+};
+
+// Delete a shared post
+const deleteSharedPost = async (req, res) => {
+  try {
+    const { postID } = req.params;
+    const userID = req.user?.id;
+
+    if (!userID) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    // Check if post exists and belongs to this user
+    const [sharedPost] = await pool.query(
+      "SELECT * FROM posts WHERE postID = ? AND userID = ? AND sharedFromPostID IS NOT NULL",
+      [postID, userID]
+    );
+
+    if (!sharedPost.length) {
+      return res.status(404).json({ message: "Shared post not found or not owned by user" });
+    }
+
+    // Delete the shared post
+    await pool.query("DELETE FROM posts WHERE postID = ? AND userID = ?", [postID, userID]);
+
+    res.json({ message: "Shared post deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting shared post:", err);
+    res.status(500).json({ message: "Failed to delete shared post", error: err.message });
+  }
+};
+
+// Edit a shared post
+const editSharedPost = async (req, res) => {
+  const postID = req.params.id;
+  const userID = req.user.userID; // from token
+  const { content } = req.body; // <-- use 'content' instead of 'caption'
+
+  if (!content) {
+    return res.status(400).json({ message: 'Content is required' });
+  }
+
+  try {
+    const post = await getPostDb(postID);
+
+    if (!post) return res.status(404).json({ message: 'Shared post not found' });
+    if (post.userID !== userID) return res.status(403).json({ message: 'Forbidden: You can only edit your own shared posts' });
+
+    // Update only content
+    const result = await editSharedPostDb(postID, userID, content);
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ message: 'Update failed: shared post not found or no changes' });
+    }
+
+    const updatedPost = await getPostDb(postID);
+    res.status(200).json({ message: 'Shared post updated successfully', post: updatedPost });
+
+  } catch (error) {
+    console.error('Error editing shared post:', error);
+    res.status(500).json({ message: 'Failed to edit shared post' });
   }
 };
 
@@ -343,75 +470,6 @@ if (post.userID !== userID) {
     res.status(500).json({ message: 'Failed to like/unlike comment' });
   }
 };
-
-// Share a post
-const sharePost = async (req, res) => {
-  const userID = req.user.id; // The user who is sharing
-  const { postID } = req.params; // ID of the post to share
-  const { caption } = req.body;  // Optional caption
-
-  if (!postID) return res.status(400).json({ message: 'Post ID is required' });
-
-  try {
-    // sharePostDb does NOT check ownership
-    await sharePostDb(userID, postID, caption);
-    res.status(201).json({ message: 'Post shared successfully' });
-  } catch (error) {
-    console.error('Error sharing post:', error);
-    res.status(500).json({ message: 'Failed to share post' });
-  }
-};
-
-// Delete a shared post
-const deleteSharedPost = async (req, res) => {
-  const postID = req.params.id;
-  const userID = req.user.id;
-
-  try {
-    const post = await getPostDb(postID);
-    if (!post) {
-      return res.status(404).json({ error: 'Post not found' });
-    }
-
-    if (post.userID !== userID) {
-      return res.status(403).json({ error: 'Forbidden: You can only delete your own posts' });
-    }
-
-    // Only delete the post (shared posts are normal posts in DB)
-    await deleteSharedPostDb(postID);
-    res.status(200).json({ message: 'Shared post deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting shared post:', error);
-    res.status(500).json({ message: 'Error deleting shared post' });
-  }
-};
-
-// Edit a shared post
-const editSharedPost = async (req, res) => {
-  const postID = req.params.id;
-  const userID = req.user.id;
-  const { caption } = req.body;
-
-  if (!caption) return res.status(400).json({ message: 'Caption is required' });
-
-  try {
-    const post = await getPostDb(postID);
-    if (!post) {
-      return res.status(404).json({ message: 'Shared post not found' });
-    }
-
-    if (post.userID !== userID) {
-      return res.status(403).json({ message: 'Forbidden: You can only edit your own shared posts' });
-    }
-
-    await editSharedPostDb(postID, caption);
-    res.status(200).json({ message: 'Shared post updated successfully' });
-  } catch (error) {
-    console.error('Error editing shared post:', error);
-    res.status(500).json({ message: 'Failed to edit shared post' });
-  }
-};
-
                     
 
 export {getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, deleteCommentDb, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost, deleteNotification, };

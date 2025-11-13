@@ -38,7 +38,7 @@ const checkUser  = async (req, res) => {
       return;
     }
     
-    let token = jwt.sign({id: user.userID,  emailAdd: emailAdd, firstName: user.firstName, lastName: user.lastName }, SECRET, { expiresIn: '1h' });
+    let token = jwt.sign({id: user.userID,  emailAdd: emailAdd, firstName: user.firstName, lastName: user.lastName }, SECRET, { expiresIn: '1d' });
     
     res.json({ 
       token: token, 
@@ -61,25 +61,31 @@ const verifyAToken = (req, res, next) => {
             token = req.headers.authorization.split(' ')[1];
         }
         if (!token) {
+            console.log('No token provided');
             return res.status(401).json({ message: 'No token provided' });
         }
         
         jwt.verify(token, SECRET, (err, decoded) => {
             if (err) {
+                console.log('Token invalid or expired:', err);
                 return res.status(401).json({ message: 'Token invalid or expired' });
             }
+
             req.user = {
-                id: decoded.id,
+                userID: decoded.id,
                 emailAdd: decoded.emailAdd,
                 firstName: decoded.firstName,
                 lastName: decoded.lastName
             };
+
+            console.log('Verified user from token:', req.user);
             next();
         });
     } catch (err) {
-        console.error(err);
+        console.error('Error in verifyAToken middleware:', err);
         res.status(500).send('Error verifying token');
     }
 };
+
     
 export {checkUser, verifyAToken}

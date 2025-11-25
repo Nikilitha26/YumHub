@@ -1,7 +1,7 @@
 <template>
   <div class="posts-view">
     <div class="header">
-      <h1>Posts</h1>
+      <h1>YumHub</h1>
       <button class="add-post-btn" @click="openCreatePost">
         <i class="fas fa-plus-circle"></i> Create Post
       </button>
@@ -11,157 +11,217 @@
     <div v-else-if="error">{{ error }}</div>
 
     <!-- Create/Edit Post Modal -->
-    <div v-if="showPostModal" class="post-modal-backdrop" @click.self="closePostModal">
-      <div class="post-modal">
-        <h3>{{ editingPost ? 'Edit Post' : 'Create New Post' }}</h3>
-        <form @submit.prevent="savePost">
-          <div class="form-group">
-            <label>Caption</label>
-            <input 
-              v-model="postForm.title" 
-              type="text" 
-              placeholder="Enter caption..."
-              required
-            >
-          </div>
-          
-          <div class="form-group">
-            <label>Content</label>
-            <textarea 
-              v-model="postForm.content" 
-              placeholder="What's on your mind?"
-              rows="4"
-              required
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label>Image</label>
-            <input 
-              type="file" 
-              @change="handleImageUpload" 
-              accept="image/*"
-            >
-            <img 
-              v-if="postForm.imageUrl" 
-              :src="postForm.imageUrl" 
-              class="preview-image"
-              alt="Preview"
-            >
-          </div>
-
-          <div class="modal-actions">
-            <button type="button" class="btn btn-cancel" @click="closePostModal">
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-save">
-              {{ editingPost ? 'Save Changes' : 'Create Post' }}
-            </button>
-          </div>
-        </form>
+<!-- Create/Edit Post Modal -->
+<div v-if="showPostModal" class="post-modal-backdrop" @click.self="closePostModal">
+  <div class="post-modal">
+    <h3>{{ editingPost ? 'Edit Post' : 'Create New Post' }}</h3>
+    <form @submit.prevent="savePost">
+      <!-- Caption -->
+      <div class="form-group">
+        <label>Caption</label>
+        <input 
+          v-model="postForm.title" 
+          type="text" 
+          placeholder="Enter caption..."
+          required
+        >
       </div>
-    </div>
+      
+      <!-- Content -->
+      <div class="form-group">
+        <label>Content</label>
+        <textarea 
+          v-model="postForm.content" 
+          placeholder="What's on your mind?"
+          rows="4"
+          required
+        ></textarea>
+      </div>
+
+      <!-- Image (only editable for your own posts) -->
+      <div class="form-group">
+        <label>Image</label>
+        <input
+          type="file"
+          accept="image/*"
+          @change="handleImageUpload"
+        />
+        <small v-if="!postForm.canEditImage" class="text-muted">
+          You cannot change the image of a shared post.
+        </small>
+        <img 
+          v-if="postForm.imageUrl" 
+          :src="postForm.imageUrl" 
+          class="preview-image"
+          alt="Preview"
+        >
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" @click="closePostModal">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-save">
+          {{ editingPost ? 'Save Changes' : 'Create Post' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
     <div class="posts-list">
       <div
-        v-for="post in posts"
-        :key="post.id"
+        v-for="post in posts" :key="post.postID"
         class="post-item"
         :data-post-id="post.id"
       >
-        <!-- Edit button for user's own posts -->
-        <button 
-          v-if="post.author === 'You'"
-          class="edit-post-btn" 
-          @click="openEditPost(post)"
-        >
-          <i class="fas fa-edit"></i>
-        </button>
+<!-- Edit button for user's own or shared posts -->
+<button 
+  v-if="String(post.authorID) === String(currentUser.id) || post.sharedFromUserName === currentUser.name"
+  class="edit-post-btn" 
+  @click="openEditPost(post)"
+>
+  <i class="fas fa-edit"></i>
+</button>
+
+<!-- 🗑️ Delete button -->
+<!-- Delete button -->
+<button 
+  v-if="String(post.authorID) === String(currentUser.id)" 
+  class="delete-post-btn" 
+  @click="deletePost(post.postID)"
+  title="Delete Post"
+>
+  <i class="fas fa-trash-alt"></i>
+</button>
+
+
+
 
         <h2>{{ post.title }}</h2>
         <p>{{ post.content }}</p>
         <img v-if="post.imageUrl" :src="post.imageUrl" alt="Post Image" class="post-image" />
         <p><strong>By:</strong> {{ post.author }}</p>
 
-        <div class="post-actions">
-          <i class="fas fa-comment" @click="toggleCommentInput(post.id)"></i>
-          <span>{{ computedCommentsCount(post) }} comments</span>
+<div class="post-actions">
+  <!-- 💬 Comments -->
+  <i class="fas fa-comment" @click="toggleComments(post.postID); toggleCommentInput(post.postID)"></i>
+  <span>{{ computedCommentsCount(post) }}</span>
 
-          <i
-            :class="['fas', 'fa-heart', post.liked ? 'liked' : '']"
-            @click="toggleLike(post)"
-          ></i>
-          <span>{{ post.likeCount || 0 }} likes</span>
+  <!-- ❤️ Likes -->
+<i 
+  :class="['fas', 'fa-heart', post.liked ? 'liked' : '']"
+  @click="toggleLike(post)"
+></i>
+  <span>{{ post.likeCount }} {{ post.likeCount === 1 ? 'Like' : 'Likes' }}</span>
 
-          <i class="fas fa-share" @click="openSharePopup(post.id)"></i>
-          <span>{{ post.sharesCount || 0 }} shares</span>
-        </div>
-
-        <!-- Updated Comments Section -->
-        <div class="comments-section">
-          <div v-if="commentsMap[post.id] && commentsMap[post.id].length" class="comments-list">
-            <div
-              v-for="(comment, idx) in commentsMap[post.id]"
-              :key="idx"
-              :class="['comment-bubble', comment.author === 'You' ? 'comment-mine' : 'comment-other']"
-            >
-              <div class="comment-content">
-                <div class="comment-header">
-                  <strong>{{ comment.author }}</strong>
-                  <span class="comment-time">{{ formatTime(comment.createdAt) }}</span>
-                </div>
-                <p>{{ comment.text }}</p>
-                <div class="comment-actions">
-                  <button @click="toggleReplyInput(post.id, idx)" class="reply-btn">
-                    <i class="fas fa-reply"></i> Reply
-                  </button>
-                </div>
-
-                <!-- Replies section -->
-                <div v-if="comment.replies && comment.replies.length" class="replies-list">
-                  <div
-                    v-for="(reply, replyIdx) in comment.replies"
-                    :key="replyIdx"
-                    :class="['reply-bubble', reply.author === 'You' ? 'comment-mine' : 'comment-other']"
-                  >
-                    <div class="comment-content">
-                      <div class="comment-header">
-                        <strong>{{ reply.author }}</strong>
-                        <span class="comment-time">{{ formatTime(reply.createdAt) }}</span>
-                      </div>
-                      <p>{{ reply.text }}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Reply input -->
-<div v-if="showReplyInput(post.id, idx)" class="reply-input">
-  <textarea
-    v-model="replyInputMap[`${post.id}-${idx}`]"
-    placeholder="Write a reply..."
-    rows="2"
-  ></textarea>
-  <button class="send-btn" @click="sendReply(post, idx)">
-    <i class="fas fa-paper-plane"></i>
-  </button>
+  <!-- 🔁 Shares -->
+  <i class="fas fa-share" @click="openSharePopup(post.postID)"></i>
+  <span>{{ post.shareCount || 0 }} {{ post.shareCount === 1 ? 'Share' : 'Shares' }}</span>
 </div>
-              </div>
-            </div>
-          </div>
 
-          <div v-if="showCommentInputMap[post.id]" class="comment-input">
-            <textarea
-              v-model="commentInputMap[post.id]"
-              placeholder="Write a comment..."
-              rows="2"
-            ></textarea>
-            <button class="send-btn" @click="sendComment(post)">
-              <i class="fas fa-paper-plane"></i>
-            </button>
-          </div>
-        </div>
+<!-- ✅ Shared From Label -->
+<div v-if="post.sharedFromUserName" class="shared-meta">
+  <p class="shared-from">
+    🔁 Shared from <strong>{{ post.sharedFromUserName }}</strong>
+  </p>
 
-        <!-- Share Modal -->
+  <!-- 🗑️ Delete Shared Post Button -->
+<button @click="deleteSharedPost(post.postID)">
+  <i class="fas fa-trash-alt"></i> Delete Shared Post
+</button>
+</div>
+
+
+<!-- 📨 Share Popup -->
+<div
+  v-if="showShareInputMap[post.postID]"
+  class="share-modal-backdrop"
+  @click.self="closeSharePopup(post.postID)"
+>
+  <div class="share-modal">
+    <h3>Share Post</h3>
+    <textarea
+      v-model="shareInputMap[post.postID]"
+      placeholder="Add optional text (leave blank to share without text)"
+      rows="4"
+    ></textarea>
+
+    <div class="share-actions">
+      <button class="btn btn-cancel" @click="closeSharePopup(post.postID)">
+        Cancel
+      </button>
+      <button class="btn btn-send" @click="sendShare(post)">
+        <i class="fas fa-paper-plane"></i> Send
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Comments -->
+<div 
+  v-if="showCommentsMap[post.postID]" 
+  class="comments-section"
+>
+
+<div 
+  v-for="comment in commentsMap[post.postID]" 
+  :key="comment.commentID" 
+  class="comment-item"
+>
+  <strong>{{ comment.userName }}:</strong>
+
+  <!-- Editable Comment -->
+  <span v-if="editingCommentMap[comment.commentID]">
+    <textarea v-model="editCommentInputMap[comment.commentID]" rows="2"></textarea>
+    <button @click="saveComment(post, comment)">Save</button>
+    <button @click="cancelEditComment(comment)">Cancel</button>
+  </span>
+
+  <span v-else>{{ comment.commentText }}</span>
+
+  <!-- COMMENT LIKE BUTTON ❤️ -->
+  <span class="comment-like-btn" @click="toggleCommentLike(post.postID, comment)">
+    <i 
+      :class="[
+        'fas',
+        'fa-heart',
+        comment.liked ? 'liked' : ''
+      ]"
+    ></i>
+    <span>{{ comment.likeCount || 0 }}</span>
+  </span>
+
+  <!-- Edit -->
+  <button 
+    class="edit-comment-btn" 
+    v-if="!editingCommentMap[comment.commentID]"
+    @click="editComment(comment)"
+  >
+    <i class="fas fa-edit"></i>
+  </button>
+
+  <!-- Delete -->
+  <button @click="deleteComment(post.postID, comment.commentID)">🗑️</button>
+</div>
+
+  <!-- Add New Comment -->
+  <div v-if="showCommentInputMap[post.postID]" class="comment-input">
+    <textarea
+      v-model="commentInputMap[post.postID]"
+      placeholder="Write a comment..."
+      rows="2"
+    ></textarea>
+    <button @click="sendComment(post)">
+      <i class="fas fa-paper-plane"></i>
+    </button>
+  </div>
+</div>
+
+
+        <!-- Share Popup -->
+
         <div
           v-if="showShareInputMap[post.id]"
           class="share-modal-backdrop"
@@ -191,6 +251,8 @@
 
 <script>
 import { mapGetters } from 'vuex';
+import axios from 'axios'
+import VueCookies from 'vue-cookies'
 import '@fortawesome/fontawesome-free/css/all.css';
 import Swal from 'sweetalert2';
 
@@ -203,6 +265,8 @@ export default {
       notificationMessage: '',
       commentsMap: {},
       commentInputMap: {},
+      activeCommentInput: null,
+      showCommentsMap: {},
       showCommentInputMap: {},
       sharesMap: {},
       shareInputMap: {},
@@ -210,293 +274,726 @@ export default {
       showPostModal: false,
       editingPost: null,
       postForm: {
+        currentPost: null, 
+        imageFile: null,
         title: '',
         content: '',
         imageUrl: '',
         author: 'You'
       },
-      replyInputMap: {},
-      showReplyInputMap: {}
+      editingCommentMap: {},   
+    editCommentInputMap: {}, 
     };
   },
 
   computed: {
-    ...mapGetters(['getPosts']),
-    posts() {
-      return this.getPosts ? this.getPosts : [];
-    },
+  ...mapGetters(['getPosts']),
+  
+  posts() {
+    return this.getPosts ? this.getPosts : [];
   },
+
+  currentUser() {
+    // Adjust based on what you store in Vuex or cookies
+    return {
+      id: VueCookies.get('userID'),
+      name: VueCookies.get('userName') 
+    };
+  }
+  },
+
+
 
   watch: {
-    posts: {
-      handler(newPosts) {
-        newPosts.forEach(p => {
-          if (!(p.id in this.commentsMap)) {
-            this.commentsMap[p.id] = [];
-          }
-          if (!(p.id in this.commentInputMap)) {
-            this.commentInputMap[p.id] = '';
-          }
-          if (!(p.id in this.showCommentInputMap)) {
-            this.showCommentInputMap[p.id] = false;
-          }
-          if (!(p.id in this.sharesMap)) {
-            this.sharesMap[p.id] = [];
-          }
-          if (!(p.id in this.shareInputMap)) {
-            this.shareInputMap[p.id] = '';
-          }
-          if (!(p.id in this.showShareInputMap)) {
-            this.showShareInputMap[p.id] = false;
-          }
-        });
-      },
-      immediate: true,
-      deep: true
-    }
+posts(newPosts) {
+    newPosts.forEach(p => {
+      const pid = p.postID;
+
+      if (!this.commentsMap[pid]) this.commentsMap[pid] = [];
+      if (!this.commentInputMap[pid]) this.commentInputMap[pid] = "";
+      if (!this.showCommentInputMap[pid]) this.showCommentInputMap[pid] = false;
+      if (!this.shareInputMap[pid]) this.shareInputMap[pid] = "";
+      if (!this.showShareInputMap[pid]) this.showShareInputMap[pid] = false;
+      if (!this.showCommentsMap[pid]) this.showCommentsMap[pid] = false;
+    });
+  }
   },
 
-  async created() {
-    try {
-      await this.$store.dispatch('getPosts');
-    } catch (err) {
-      this.error = 'Failed to fetch posts.';
-      console.error(err);
-    } finally {
-      this.loading = false;
-    }
-  },
+  mounted() {
+  // this.commentsMap = { ...this.$store.state.commentsMap };
+   this.loadPosts();
+    // this.loadAllComments();
+},
+
+// async created() {
+//   try {
+//     const userID = VueCookies.get('userID');
+//     const token = VueCookies.get('token');
+ 
+//     // await this.loadPosts();
+
+//     // ✅ Fetch liked comments first
+//     let likedCommentIDs = [];
+//     if (userID) {
+//       const likedResponse = await axios.get(
+//         `http://localhost:2000/users/${userID}/liked-comments`,
+//         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+//       );
+//       likedCommentIDs = likedResponse.data.map(c =>
+//         typeof c === 'object' ? c.commentID : c
+//       );
+//     }
+
+//     // Now fetch comments for each post
+//     for (const post of this.posts) {
+//       const response = await axios.get(
+//         `http://localhost:2000/posts/${post.postID}/comments`,
+//         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+//       );
+
+//       const comments = response.data.map(c => ({
+//         ...c,
+//         userName: c.firstName && c.lastName ? `${c.firstName} ${c.lastName}` : c.userID,
+//         likeCount: c.likeCount || 0,
+//         liked: likedCommentIDs.includes(c.commentID), // ✅ mark liked properly
+//       }));
+
+//       this.commentsMap[post.postID] = comments;
+//     }
+
+//   } catch (err) {
+//     console.error(err);
+//     this.error = "Failed to fetch posts or comments.";
+//   } finally {
+//     this.loading = false;
+//   }
+// },
 
   methods: {
     // Create/Edit Post Methods
-    openCreatePost() {
-      this.editingPost = null;
-      this.postForm = {
-        title: '',
-        content: '',
-        imageUrl: '',
-        author: 'You'
-      };
-      this.showPostModal = true;
-    },
-
-    openEditPost(post) {
-      this.editingPost = post;
-      this.postForm = { ...post };
-      this.showPostModal = true;
-    },
-
-    closePostModal() {
-      this.showPostModal = false;
-      this.editingPost = null;
-      this.postForm = {
-        title: '',
-        content: '',
-        imageUrl: '',
-        author: 'You'
-      };
-    },
-
-    handleImageUpload(event) {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          this.postForm.imageUrl = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      }
-    },
-
-    async savePost() {
-      try {
-        if (this.editingPost) {
-          await this.$store.dispatch('updatePost', {
-            id: this.editingPost.id,
-            ...this.postForm
-          });
-          this.showSweet('Post updated successfully!');
-        } else {
-          await this.$store.dispatch('createPost', this.postForm);
-          this.showSweet('Post created successfully!');
+ // Unified small SweetAlert toast
+  showTinyToast(message, icon = 'success') {
+    Swal.fire({
+      title: message,
+      width: 220,
+      padding: '6px 10px',
+      timer: 1200,
+      showConfirmButton: false,
+      position: 'center',
+      background: 'rgba(255,255,255,0.95)',
+      color: '#333',
+      timerProgressBar: true,
+      toast: true,
+      icon: icon,
+      didOpen: () => {
+        const popup = Swal.getPopup();
+        if (popup) {
+          popup.style.fontSize = '12px';
+          popup.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
+          popup.style.borderRadius = '6px';
         }
-        this.closePostModal();
-      } catch (error) {
-        console.error('Error saving post:', error);
-        this.showSweet('Error saving post. Please try again.');
       }
-    },
+    });
+  },
 
-    // Comment Methods
-    toggleCommentInput(postId) {
-      this.showCommentInputMap[postId] = !this.showCommentInputMap[postId];
-      if (this.showCommentInputMap[postId]) {
-        this.$nextTick(() => {
-          const el = this.$el.querySelector(`div[data-post-id="${postId}"] .comment-input textarea`);
-          if (el) el.focus();
-        });
-      }
-    },
+  // Create/Edit Post Methods
+  openCreatePost() {
+    this.editingPost = null;
+    this.postForm = {
+      title: '',
+      content: '',
+      imageUrl: '',
+      author: 'You'
+    };
+    this.showPostModal = true;
+  },
 
-    computedCommentsCount(post) {
-      const local = this.commentsMap[post.id] ? this.commentsMap[post.id].length : 0;
-      return local || post.commentsCount || 0;
-    },
+  createPost() {
+  this.openCreatePost()
+},
 
-    sendComment(post) {
-      const text = (this.commentInputMap[post.id] || '').trim();
-      if (!text) return;
-      const comment = {
-        author: 'You',
-        text,
-        createdAt: new Date().toISOString(),
-        replies: []
+openEditPost(post) {
+  this.editingPost = post;
+  this.postForm = {
+    title: post.title || '',
+    content: post.content || '',
+    imageFile: null,
+    imageUrl: post.imageUrl || '',
+  };
+  this.showPostModal = true;
+},
+  closePostModal() {
+    this.showPostModal = false;
+    this.editingPost = null;
+    this.postForm = {
+      title: '',
+      content: '',
+      imageUrl: '',
+      author: 'You'
+    };
+  },
+
+  handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.postForm.imageUrl = e.target.result;
       };
-      if (!this.commentsMap[post.id]) {
-        this.commentsMap[post.id] = [];
-      }
-      this.commentsMap[post.id].push(comment);
-      if (typeof post.commentsCount === 'number') {
-        post.commentsCount += 1;
-      } else {
-        post.commentsCount = (this.commentsMap[post.id] || []).length;
-      }
-      this.commentInputMap[post.id] = '';
-      this.showSweet('Comment sent!');
-    },
+      reader.readAsDataURL(file);
+    }
+  },
 
-    // Reply Methods
-    toggleReplyInput(postId, commentIdx) {
-      const key = `${postId}-${commentIdx}`;
-      if (!this.replyInputMap[key]) {
-        this.$set(this.replyInputMap, key, '');
-      }
-      this.$set(this.showReplyInputMap, key, !this.showReplyInputMap[key]);
-    },
-
-    showReplyInput(postId, commentIdx) {
-      return this.showReplyInputMap[`${postId}-${commentIdx}`];
-    },
-
-    sendReply(post, commentIdx) {
-      const key = `${post.id}-${commentIdx}`;
-      const text = (this.replyInputMap[key] || '').trim();
-      if (!text) return;
-
-      if (!this.commentsMap[post.id][commentIdx].replies) {
-        this.$set(this.commentsMap[post.id][commentIdx], 'replies', []);
-      }
-
-      this.commentsMap[post.id][commentIdx].replies.push({
-        author: 'You',
-        text,
-        createdAt: new Date().toISOString()
-      });
-
-      this.replyInputMap[key] = '';
-      this.showReplyInputMap[key] = false;
-      this.showSweet('Reply sent!');
-    },
-
-    formatTime(timestamp) {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-      
-      if (diffInMinutes < 1) return 'just now';
-      if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-      
-      const diffInHours = Math.floor(diffInMinutes / 60);
-      if (diffInHours < 24) return `${diffInHours}h ago`;
-      
-      const diffInDays = Math.floor(diffInHours / 24);
-      if (diffInDays < 7) return `${diffInDays}d ago`;
-      
-      return date.toLocaleDateString();
-    },
-
-    // Like Methods
-    toggleLike(post) {
-      if (typeof post.likeCount !== 'number') {
-        post.likeCount = 0;
-      }
-      post.liked = !post.liked;
-      post.likeCount += post.liked ? 1 : -1;
-    },
-
-    // Share Methods
-    openSharePopup(postId) {
-      this.showShareInputMap[postId] = true;
-      this.$nextTick(() => {
-        const el = this.$el.querySelector(`div[data-post-id="${postId}"] .share-modal textarea`);
-        if (el) el.focus();
-      });
-    },
-
-    closeSharePopup(postId) {
-      this.showShareInputMap[postId] = false;
-      this.shareInputMap[postId] = '';
-    },
-
-    sendShare(post) {
-      const text = (this.shareInputMap[post.id] || '').trim();
-      const share = {
-        author: 'You',
-        text: text || '',
-        createdAt: new Date().toISOString()
-      };
-      if (!this.sharesMap[post.id]) {
-        this.sharesMap[post.id] = [];
-      }
-      this.sharesMap[post.id].push(share);
-      if (typeof post.sharesCount === 'number') {
-        post.sharesCount += 1;
-      } else {
-        post.sharesCount = (this.sharesMap[post.id] || []).length;
-      }
-      this.showShareInputMap[post.id] = false;
-      this.shareInputMap[post.id] = '';
-      this.showSweet('Post shared!');
-    },
-
-    // Notification Methods
-    showSweet(message) {
+async savePost() {
+  try {
+    const token = VueCookies.get("token");
+    if (!token) {
       Swal.fire({
-        title: message,
-        width: 320,
-        padding: '10px 14px',
-        timer: 1400,
-        showConfirmButton: false,
-        position: 'center',
-        background: 'rgba(223, 240, 216, 0.95)',
-        color: '#3c763d',
-        timerProgressBar: true,
-        allowOutsideClick: false,
-        didOpen: () => {
-          if (this.$el && this.$el.classList) this.$el.classList.add('blur');
-          const p = Swal.getPopup && Swal.getPopup();
-          if (p) {
-            p.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
-            p.style.fontSize = '14px';
-            p.style.borderRadius = '8px';
-          }
+        icon: "error",
+        title: "Not logged in",
+        text: "Please log in to post.",
+        background: "#fff",
+        confirmButtonColor: "rgb(148, 118, 103)"
+      });
+      return;
+    }
+
+    if (this.editingPost) {
+      // -------- EDIT MODE --------
+      const postID = this.editingPost.postID;
+      const isShared = !!this.editingPost.sharedFromUserName;
+
+      const payload = {
+        title: this.postForm.title,
+        content: this.postForm.content
+      };
+      if (!isShared && this.postForm.imageUrl) {
+        payload.imageUrl = this.postForm.imageUrl;
+      }
+
+      await axios.patch(
+        isShared
+          ? `http://localhost:2000/posts/shared/${postID}`
+          : `http://localhost:2000/posts/${postID}`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update Vuex posts array in-place
+      const updatedPosts = this.$store.state.posts.map(p =>
+        p.postID === postID ? { ...p, ...payload } : p
+      );
+      this.$store.commit("setPosts", updatedPosts);
+
+      Swal.fire({
+        icon: "success",
+        title: "Updated!",
+        text: "Post updated successfully",
+        background: "#fff",
+        confirmButtonColor: "rgb(148, 118, 103)"
+      });
+
+    } else {
+      // -------- CREATE MODE --------
+      const response = await axios.post(
+        "http://localhost:2000/posts",
+        {
+          title: this.postForm.title,
+          content: this.postForm.content,
+          imageUrl: this.postForm.imageUrl
         },
-        willClose: () => {
-          if (this.$el && this.$el.classList) this.$el.classList.remove('blur');
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      let newPost = response.data;
+      newPost = {
+        ...newPost,
+        postID: newPost.postID ?? newPost.id,
+        liked: false,
+        likeCount: 0
+      };
+
+      // Initialize comment/share maps
+      this.commentsMap[newPost.postID] = [];
+      this.commentInputMap[newPost.postID] = "";
+      this.showCommentsMap[newPost.postID] = false;
+      this.showCommentInputMap[newPost.postID] = false;
+      this.shareInputMap[newPost.postID] = "";
+      this.showShareInputMap[newPost.postID] = false;
+
+      // Prepend to Vuex posts
+      this.$store.commit("setPosts", [newPost, ...this.$store.state.posts]);
+
+      Swal.fire({
+        icon: "success",
+        title: "Created!",
+        text: "Post created successfully",
+        background: "#fff",
+        confirmButtonColor: "rgb(148, 118, 103)"
       });
     }
+
+    this.closePostModal();
+
+  } catch (err) {
+    console.error("Error saving post:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: err.response?.data?.message || "Failed to save post",
+      background: "#fff",
+      confirmButtonColor: "rgb(148, 118, 103)"
+    });
   }
+},
+
+async loadPosts() {
+  this.loading = true;
+  try {
+    const token = VueCookies.get('token');
+    const userID = VueCookies.get('userID');
+
+    const response = await axios.get('http://localhost:2000/posts', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+
+    // const postsData = response.data.map(post => ({
+    //   ...post,
+    //   postID: post.postID ?? post.id,
+    //   authorID: post.authorID, // ensure this matches the backend field
+    //   author: post.authorName || post.author, // optional
+    //   likeCount: post.likeCount || 0,
+    //   liked: false
+    // }));
+    const postsData = response.data.map(post => ({
+  ...post,
+  postID: post.postID ?? post.id,
+  authorID: post.authorID ?? post.userID, // fallback
+  author: post.authorName || post.author || 'Unknown',
+  likeCount: post.likeCount || 0,
+  liked: false
+}));
+
+
+    this.$store.commit('setPosts', postsData);
+
+    // Initialize comment & share maps
+    postsData.forEach(post => {
+      this.commentsMap[post.postID] = [];
+      this.commentInputMap[post.postID] = "";
+      this.showCommentsMap[post.postID] = false;
+      this.showCommentInputMap[post.postID] = false;
+      this.shareInputMap[post.postID] = "";
+      this.showShareInputMap[post.postID] = false;
+    });
+
+  } catch (err) {
+    console.error(err);
+    this.error = "Failed to load posts.";
+  } finally {
+    this.loading = false;
+  }
+},
+
+async deletePost(postID) {
+  const result = await Swal.fire({
+    title: "Delete Post?",
+    text: "Are you sure you want to delete this post?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "rgb(148, 118, 103)",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, delete it!",
+    background: "#fff",
+    color: "#000",
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const token = VueCookies.get("token");
+    await axios.delete(`http://localhost:2000/posts/${postID}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // Remove post from Vuex
+    const updatedPosts = this.$store.state.posts.filter(p => p.postID !== postID);
+    this.$store.commit("setPosts", updatedPosts);
+
+    this.showTinyToast("Post deleted!", "success");
+  } catch (err) {
+    console.error("Error deleting post:", err);
+    Swal.fire("Error", "Failed to delete post.", "error");
+  }
+},
+
+async toggleLike(post) {
+  if (!this.$store.state.isLoggedIn) {
+    this.showTinyToast('Please log in to like posts.', 'error');
+    return;
+  }
+
+  try {
+    const token = VueCookies.get('token');
+
+    const response = await axios.post(
+      `http://localhost:2000/posts/${post.postID}/like`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Create a new array to trigger reactivity
+    const updatedPosts = this.$store.state.posts.map(p =>
+      p.postID === post.postID
+        ? { ...p, liked: response.data.liked, likeCount: response.data.likeCount }
+        : p
+    );
+
+    // Commit the new array to Vuex
+    this.$store.commit('setPosts', updatedPosts);
+
+  } catch (err) {
+    console.error('Error toggling like:', err);
+    this.showTinyToast('Failed to toggle like!', 'error');
+  }
+},
+
+// Send share
+async sendShare(post) {
+  if (!this.$store.state.isLoggedIn) {
+    Swal.fire('Please log in to share posts.');
+    return;
+  }
+
+  try {
+    const token = VueCookies.get('token'); 
+    const caption = this.shareInputMap[post.postID] || '';
+
+    // Send share request to backend
+    const response = await axios.post(
+      `http://localhost:2000/posts/${post.postID}/share`,
+      { caption },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Backend returns updated posts array
+    const updatedPosts = response.data.map(p => ({
+      ...p,
+      postID: p.postID ?? p.id,
+      liked: !!p.liked,
+      likeCount: p.likeCount || 0
+    }));
+
+    // Commit updated posts to Vuex
+    this.$store.commit('setPosts', updatedPosts);
+
+    // Close share popup & clear input
+    this.showShareInputMap[post.postID] = false;
+    this.shareInputMap[post.postID] = '';
+
+    Swal.fire('Shared!', 'Post shared successfully.', 'success');
+
+  } catch (err) {
+    console.error('Error sharing post:', err);
+    Swal.fire('Error', 'Failed to share post.', 'error');
+  }
+},
+
+async updatePost() {
+  if (!this.editingPost) return;
+
+  try {
+    const token = VueCookies.get("token");
+    if (!token) throw new Error("Not logged in");
+
+    const postID = this.editingPost.postID;
+
+    // Determine if it's a shared post
+    const isShared = !!this.editingPost.sharedFromUserName;
+    const url = isShared 
+      ? `http://localhost:2000/posts/shared/${postID}` 
+      : `http://localhost:2000/posts/${postID}`;
+
+    const payload = {
+      title: this.postForm.title,
+      content: this.postForm.content
+    };
+
+    // Only allow image update if not shared
+    if (!isShared && this.postForm.imageUrl) {
+      payload.imageUrl = this.postForm.imageUrl;
+    }
+
+    const response = await axios.patch(url, payload, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // Update local Vuex store immediately
+    const updatedPosts = this.$store.state.posts.map(p =>
+      p.postID === postID ? { ...p, ...payload } : p
+    );
+    this.$store.commit("setPosts", updatedPosts);
+
+    Swal.fire({
+      icon: "success",
+      title: "Updated!",
+      text: "Post updated successfully",
+      background: "#fff",
+      confirmButtonColor: "rgb(148, 118, 103)"
+    });
+
+    this.closePostModal();
+
+  } catch (err) {
+    console.error("Error updating post:", err);
+    Swal.fire({
+      icon: "error",
+      title: "Failed to update",
+      text: err.response?.data?.message || err.message,
+      background: "#fff",
+      confirmButtonColor: "rgb(148, 118, 103)"
+    });
+  }
+},
+
+// Delete shared post
+async deleteSharedPost(postID) {
+  const result = await Swal.fire({
+    title: "Delete Shared Post?",
+    text: "Are you sure you want to delete this shared post?",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "rgb(148, 118, 103)",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, delete it!",
+    background: "#fff",
+    color: "#000",
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    await this.$store.dispatch('deleteSharedPost', postID);
+    Swal.fire('Deleted!', 'Your shared post has been deleted.', 'success');
+  } catch (err) {
+    Swal.fire('Error', 'Failed to delete shared post.', 'error');
+  }
+},
+
+
+  // Comments Methods
+  toggleComments(postID) {
+    this.showCommentsMap[postID] = !this.showCommentsMap[postID];
+  },
+
+toggleCommentInput(postID) {
+  if (!this.showCommentInputMap) this.showCommentInputMap = {};
+  this.showCommentInputMap[postID] = !this.showCommentInputMap[postID];
+},
+
+  computedCommentsCount(post) {
+    return this.commentsMap[post.postID]?.length || 0;
+  },
+
+async sendComment(post) {
+  const postID = post.postID;
+  const commentText = this.commentInputMap[postID];
+
+  if (!commentText?.trim()) {
+    Swal.fire('Oops', 'Comment cannot be empty!', 'warning');
+    return;
+  }
+
+  const tempComment = {
+    commentID: Date.now(),
+    userName: 'You',
+    commentText,
+    liked: false,   // ✅ always define liked
+    likeCount: 0
+  };
+
+  if (!this.commentsMap[postID]) this.commentsMap[postID] = [];
+  this.commentsMap[postID].push(tempComment);
+
+  this.commentInputMap[postID] = "";
+
+  try {
+    const savedComment = await this.$store.dispatch('addComment', {
+      postID,
+      commentText
+    });
+
+    if (savedComment?.commentID) {
+      const index = this.commentsMap[postID].findIndex(c => c.commentID === tempComment.commentID);
+      if (index !== -1) this.commentsMap[postID][index].commentID = savedComment.commentID;
+    }
+
+    // Optional: refresh to get new likes from backend
+    await this.fetchComments(postID);
+  } catch (err) {
+    console.error(err);
+    this.commentsMap[postID] = this.commentsMap[postID].filter(c => c.commentID !== tempComment.commentID);
+    this.showTinyToast('Failed to add comment!', 'error');
+  }
+},
+
+async fetchComments(postID) {
+  try {
+    const userID = VueCookies.get('userID');
+    const token = VueCookies.get('token');
+
+    const response = await axios.get(
+      `http://localhost:2000/posts/${postID}/comments`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+
+    let likedCommentIDs = [];
+    if (userID) {
+      const likedResponse = await axios.get(
+        `http://localhost:2000/users/${userID}/liked-comments`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      likedCommentIDs = likedResponse.data.map(c => typeof c === 'object' ? c.commentID : c);
+    }
+
+    const comments = response.data.map(c => ({
+      ...c,
+      userName: c.firstName && c.lastName ? `${c.firstName} ${c.lastName}` : c.userID,
+      likeCount: c.likeCount || 0,
+      liked: likedCommentIDs.includes(c.commentID),
+    }));
+    this.commentsMap[postID] = comments;
+  } catch (err) {
+    console.error('Error fetching comments:', err);
+  }
+},
+
+  editComment(comment) {
+    this.editingCommentMap = { ...this.editingCommentMap, [comment.commentID]: true };
+    this.editCommentInputMap = { ...this.editCommentInputMap, [comment.commentID]: comment.commentText };
+  },
+
+  cancelEditComment(comment) {
+    this.editingCommentMap = { ...this.editingCommentMap, [comment.commentID]: false };
+    this.editCommentInputMap = { ...this.editCommentInputMap, [comment.commentID]: '' };
+  },
+
+  async saveComment(post, comment) {
+    const newText = this.editCommentInputMap[comment.commentID];
+    if (!newText?.trim()) return;
+
+    try {
+      await this.$store.dispatch('editComment', {
+        postId: post.postID,
+        commentId: comment.commentID,
+        newText
+      });
+
+      const index = this.commentsMap[post.postID].findIndex(c => c.commentID === comment.commentID);
+      if (index !== -1) this.commentsMap[post.postID][index].commentText = newText;
+
+      this.cancelEditComment(comment);
+      this.showTinyToast('Comment updated!');
+    } catch (err) {
+      console.error('Failed to update comment:', err);
+      this.showTinyToast('Failed to update comment!', 'error');
+    }
+  },
+
+  async deleteComment(postId, commentId) {
+    const result = await Swal.fire({
+      title: "Delete Comment?",
+      text: "Are you sure you want to delete this comment?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "rgb(148, 118, 103)",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+      background: "#fff",
+      color: "#000",
+      width: 220,
+      padding: '6px 10px',
+      toast: true,
+      position: 'center', 
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await this.$store.dispatch("deleteComment", { postId, commentId });
+
+      const comments = this.commentsMap[postId] || [];
+      this.commentsMap = { ...this.commentsMap, [postId]: comments.filter(c => c.commentID !== commentId) };
+
+      this.showTinyToast('Comment deleted!');
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      this.showTinyToast('Failed to delete comment!', 'error');
+    }
+  },
+
+async toggleCommentLike(postID, comment) {
+  const token = VueCookies.get('token');
+
+  try {
+    const response = await axios.post(
+      `http://localhost:2000/posts/comments/${comment.commentID}/like`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Replace the comment object to trigger reactivity
+    this.commentsMap[postID] = this.commentsMap[postID].map(c =>
+      c.commentID === comment.commentID
+        ? { ...c, liked: response.data.liked, likeCount: response.data.likeCount }
+        : c
+    );
+
+  } catch (err) {
+    console.error("Failed to toggle comment like:", err);
+  }
+},
+
+
+  // Share Methods
+// Open share popup
+openSharePopup(postID) {
+  this.showShareInputMap[postID] = true; 
+  this.$nextTick(() => {
+    const el = this.$el.querySelector(`div[data-post-id="${postID}"] .share-modal textarea`);
+    if (el) el.focus();
+  });
+},
+
+// Close share popup
+closeSharePopup(postID) {
+  this.showShareInputMap[postID] = false;
+  this.shareInputMap[postID] = '';
+},
+
+
+}
 };
 </script>
 
 <style scoped>
+.edit-comment-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  margin-left: 8px;
+  color: #007bff;
+  font-size: 0.9em;
+}
+.edit-comment-btn:hover {
+  color: #0056b3;
+}
+
 /* Layout & Container Styles */
 .posts-view {
   padding: 20px;
   max-width: 800px;
   margin: 0 auto;
-  background: #f8f9fa;
 }
 
 .header {
@@ -582,6 +1079,24 @@ h2 {
   background: rgba(0,0,0,0.05);
 }
 
+.delete-post-btn {
+  position: absolute;
+  top: 15px;
+  right: 50px; /* leave space from edit button */
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #b97b56;
+  padding: 5px;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+
+.delete-post-btn:hover {
+  color: #d9534f;
+}
+
+
 /* Post Actions */
 .post-actions {
   display: flex;
@@ -606,9 +1121,66 @@ h2 {
   color: #6c757d;
 }
 
+/* .fa-heart.liked {
+  color: red;
+  transform: scale(1.15);
+} */
+
 .liked {
   color: #dc3545;
 }
+
+/* Make the liked heart red, overriding fontawesome */
+.post-actions i.fa-heart.liked {
+  color: #dc3545;
+  transform: scale(1.15);
+  transition: all 0.2s;
+}
+
+
+.shared-from {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 5px;
+  font-style: italic;
+}
+
+.delete-btn {
+  border: none;
+  background: transparent;
+  color: #b97b56;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.delete-btn:hover {
+  color: #d9534f;
+}
+
+.shared-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f7f7f7;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.shared-meta .delete-btn {
+  font-size: 0.85em;
+  color: #b97b56;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.shared-meta .delete-btn:hover {
+  color: #d9534f;
+}
+
 
 /* Comments Section */
 .comments-section {
@@ -617,99 +1189,20 @@ h2 {
   border-top: 1px solid #eee;
 }
 
-.comments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 16px;
+.comment-item {
+  padding: 8px 0;
+  border-bottom: 1px dashed #eee;
+  font-size: 14px;
 }
 
-.comment-bubble {
-  display: flex;
-  max-width: 85%;
-}
-
-.comment-mine {
-  margin-left: auto;
-}
-
-.comment-content {
-  background: #f8f9fa;
-  padding: 12px;
-  border-radius: 12px;
-  position: relative;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-.comment-mine .comment-content {
-  background: #e3f2fd;
-}
-
-.comment-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.comment-time {
-  font-size: 12px;
-  color: #6c757d;
-  margin-left: 8px;
-}
-
-.comment-actions {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.reply-btn {
-  background: transparent;
-  border: none;
-  color: #6c757d;
-  font-size: 12px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.reply-btn:hover {
-  background: rgba(0,0,0,0.05);
-  color: #007bff;
-}
-
-.replies-list {
-  margin-top: 12px;
-  padding-left: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.reply-bubble {
-  max-width: 90%;
-}
-
-.reply-input {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
-  padding-left: 24px;
-}
-
-/* Input Styles */
-.comment-input,
-.reply-input {
+.comment-input {
   display: flex;
   gap: 10px;
   margin-top: 10px;
   align-items: flex-end;
 }
 
-.comment-input textarea,
-.reply-input textarea {
+.comment-input textarea {
   flex: 1;
   resize: vertical;
   padding: 10px;
@@ -721,10 +1214,27 @@ h2 {
   transition: border-color 0.2s;
 }
 
-.comment-input textarea:focus,
-.reply-input textarea:focus {
+.comment-input textarea:focus {
   outline: none;
   border-color: #007bff;
+}
+
+.comment-like-btn {
+  cursor: pointer;
+  margin-left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: all; /* ensure clicks register */
+}
+
+.fa-heart {
+  transition: 0.2s ease;
+}
+
+.fa-heart.liked {
+  color: red;
+  transform: scale(1.15);
 }
 
 /* Modal Styles */
@@ -833,24 +1343,6 @@ h2 {
   transform: scale(1.1);
 }
 
-/* Chat Bubble Triangles */
-.comment-content::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  border: 8px solid transparent;
-}
-
-.comment-other .comment-content::before {
-  left: -16px;
-  border-right-color: #f8f9fa;
-}
-
-.comment-mine .comment-content::before {
-  right: -16px;
-  border-left-color: #e3f2fd;
-}
-
 /* Modal Actions */
 .modal-actions,
 .share-actions {
@@ -860,7 +1352,7 @@ h2 {
   margin-top: 20px;
 }
 
-/* Sweet Alert Styles */
+/* Popup Notification */
 .popup-notification {
   position: fixed;
   top: 50%;
@@ -930,14 +1422,6 @@ h2 {
 
   h2 {
     font-size: 18px;
-  }
-
-  .comment-bubble {
-    max-width: 90%;
-  }
-
-  .replies-list {
-    padding-left: 12px;
   }
 }
 </style>

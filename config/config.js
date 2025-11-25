@@ -13,6 +13,4 @@ const pool = mysql.createPool({
     queueLimit: 0      
 })
 
-
-// default is for exporting single objects
 export {pool}

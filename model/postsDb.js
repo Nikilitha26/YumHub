@@ -22,7 +22,6 @@ const getPostsDb = async (userID) => {
         u.lastName AS authorLastName,
         su.firstName AS sharedFromFirstName,
         su.lastName AS sharedFromLastName,
-        -- ✅ Add this part to check if the current user liked each post
         CASE 
           WHEN EXISTS (
             SELECT 1 
@@ -73,15 +72,17 @@ throw new Error('Database error while fetching post');
 
 // Insert a new post into the database
 const insertPostDb = async (userID, title, content, imageUrl, category, tags, likeCount) => {
-  try {
-    await pool.query(`
-      INSERT INTO posts (userID, title, content, imageUrl, category, tags, likeCount)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [userID, title, content, imageUrl, category, JSON.stringify(tags), likeCount]);
-  } catch (error) {
-    console.error('Error inserting post:', error);
-    throw new Error('Database error while inserting post');
-  }
+    try {
+        const [result] = await pool.query(
+            `INSERT INTO posts (userID, title, content, imageUrl, category, tags, likeCount)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [userID, title, content, imageUrl, category, JSON.stringify(tags), likeCount]
+        );
+        return result;
+    } catch (err) {
+        console.error('Error inserting post:', err);
+        throw err;
+    }
 };
 
 
@@ -139,9 +140,69 @@ const likePostDb = async (userID, postID) => {
 // GET /users/:id/liked-posts
 const getLikedPostsDb = async (userID) => {
   const [rows] = await pool.query('SELECT postID FROM likes WHERE userID = ?', [userID]);
-  return rows; // array of postIDs
+  return rows;
 };
 
+
+// Share a post
+const sharePostDb = async (userID, postID, caption, userName) => {
+  try {
+    console.log('sharePostDb → userID:', userID, 'postID:', postID, 'caption:', caption);
+
+    // Getting original post
+    const [originalRows] = await pool.query('SELECT * FROM posts WHERE postID = ?', [postID]);
+    if (!originalRows.length) throw new Error('Original post not found');
+    const original = originalRows[0];
+
+    //Creating shared post
+    await pool.query(
+      `INSERT INTO posts (userID, title, content, imageUrl, category, tags, likeCount, sharedFrom)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
+      [
+        userID,
+        `Shared: ${original.title}`,
+        caption || original.content,
+        original.imageUrl,
+        original.category,
+        JSON.stringify(original.tags), 
+        postID
+      ]
+    );
+
+    //Incrementing share count of original
+    await pool.query(`UPDATE posts SET shareCount = COALESCE(shareCount, 0) + 1 WHERE postID = ?`, [postID]);
+
+    console.log('Post shared successfully!');
+  } catch (err) {
+    console.error('Database error while sharing post', err);
+    throw new Error('Database error while sharing post');
+  }
+};
+
+// Delete a shared post by ID
+const deleteSharedPostDb = async (postID, userID) => {
+  try {
+    await pool.query("DELETE FROM notifications WHERE post_id = ?", [postID]);
+    const [result] = await pool.query(
+      "DELETE FROM posts WHERE postID = ? AND userID = ?",
+      [postID, userID]
+    );
+
+    return result;
+  } catch (error) {
+    console.error("Error deleting shared post:", error);
+    throw new Error("Database error while deleting shared post");
+  }
+};
+
+// Edit a shared post's caption
+const editSharedPostDb = async (postID, userID, content) => {
+  const [result] = await pool.query(
+    `UPDATE posts SET content = ? WHERE postID = ? AND userID = ?`,
+    [content, postID, userID]
+  );
+  return result;
+};
 
 
             // Notifications
@@ -212,18 +273,36 @@ const insertCommentDb = async (postID, userID, commentText) => {
 
 
 // Get all comments for a post
-const getCommentsDb = async (postID) => {
+const getCommentsDb = async (postID, userID) => {
   try {
     const [rows] = await pool.query(`
-      SELECT c.commentID, c.postID, c.userID, c.commentText, c.parentCommentID, c.createdAt,
-             u.firstName, u.lastName
+      SELECT 
+        c.commentID, 
+        c.postID, 
+        c.userID, 
+        c.commentText, 
+        c.parentCommentID, 
+        c.createdAt,
+        u.firstName, 
+        u.lastName,
+        COUNT(cl.userID) AS likeCount,
+        MAX(CASE WHEN cl.userID = ? THEN 1 ELSE 0 END) AS likedByUser
       FROM comments c
       JOIN users u ON c.userID = u.userID
+      LEFT JOIN comment_likes cl ON cl.commentID = c.commentID
       WHERE c.postID = ?
+      GROUP BY c.commentID
       ORDER BY c.createdAt ASC
-    `, [postID]);
+    `, [userID, postID]);
 
-    return rows;
+    // Map to include booleans and full names
+    return rows.map(c => ({
+      ...c,
+      liked: !!c.likedByUser,
+      likeCount: c.likeCount || 0,
+      userName: `${c.firstName} ${c.lastName}`
+    }));
+
   } catch (error) {
     console.error('Error fetching comments:', error);
     throw new Error('Database error while fetching comments');
@@ -309,93 +388,56 @@ const replyCommentDb = async (userID, postID, parentCommentID, commentText) => {
 
 // Like or Unlike a comment
 const likeCommentDb = async (userID, commentID, userName) => {
-try {
-const comment = await getCommentByIdDb(commentID);
-if (!comment) throw new Error('Comment not found');
+  try {
+    const comment = await getCommentByIdDb(commentID);
+    if (!comment) throw new Error('Comment not found');
 
     const [rows] = await pool.query(
-        'SELECT * FROM comment_likes WHERE userID = ? AND commentID = ?',
-        [userID, commentID]
+      'SELECT * FROM comment_likes WHERE userID = ? AND commentID = ?',
+      [userID, commentID]
     );
 
     let liked;
-    if (rows.length > 0) {
-        await pool.query('DELETE FROM comment_likes WHERE userID = ? AND commentID = ?', [userID, commentID]);
-        liked = false;
-    } else {
-        await pool.query('INSERT INTO comment_likes (userID, commentID) VALUES (?, ?)', [userID, commentID]);
-        liked = true;
 
-        if (comment.userID !== userID) {
-            await createNotificationDb(comment.userID, userID, 'like_comment', `${userName} liked your comment`, comment.postID);
-        }
+    if (rows.length > 0) {
+      // Unlike
+      await pool.query(
+        'DELETE FROM comment_likes WHERE userID = ? AND commentID = ?',
+        [userID, commentID]
+      );
+      liked = false;
+    } else {
+      // Liking
+      await pool.query(
+        'INSERT INTO comment_likes (userID, commentID) VALUES (?, ?)',
+        [userID, commentID]
+      );
+      liked = true;
+
+      // Sending notification if liking someone else's comment
+      if (comment.userID !== userID) {
+        await createNotificationDb(
+          comment.userID,
+          userID,
+          'like_comment',
+          `${userName} liked your comment`,
+          comment.postID
+        );
+      }
     }
-    return { liked };
-} catch (error) {
+
+    // ALWAYS return updated like count
+    const [[{ likeCount }]] = await pool.query(
+      `SELECT COUNT(*) AS likeCount FROM comment_likes WHERE commentID = ?`,
+      [commentID]
+    );
+
+    return { liked, likeCount };
+
+  } catch (error) {
     console.error('Error liking/unliking comment:', error);
     throw new Error('Database error while liking/unliking comment');
-}
-
-};
-
-// Share a post
-const sharePostDb = async (userID, postID, caption, userName) => {
-  try {
-    console.log('sharePostDb → userID:', userID, 'postID:', postID, 'caption:', caption);
-
-    // Getting original post
-    const [originalRows] = await pool.query('SELECT * FROM posts WHERE postID = ?', [postID]);
-    if (!originalRows.length) throw new Error('Original post not found');
-    const original = originalRows[0];
-
-    //Creating shared post
-    await pool.query(
-      `INSERT INTO posts (userID, title, content, imageUrl, category, tags, likeCount, sharedFrom)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
-      [
-        userID,
-        `Shared: ${original.title}`,
-        caption || original.content,
-        original.imageUrl,
-        original.category,
-        JSON.stringify(original.tags), 
-        postID
-      ]
-    );
-
-    //Incrementing share count of original
-    await pool.query(`UPDATE posts SET shareCount = COALESCE(shareCount, 0) + 1 WHERE postID = ?`, [postID]);
-
-    console.log('Post shared successfully!');
-  } catch (err) {
-    console.error('Database error while sharing post', err);
-    throw new Error('Database error while sharing post');
   }
-};
-
-// Delete a shared post by ID
-const deleteSharedPostDb = async (postID, userID) => {
-  try {
-    await pool.query("DELETE FROM notifications WHERE post_id = ?", [postID]);
-    const [result] = await pool.query(
-      "DELETE FROM posts WHERE postID = ? AND userID = ?",
-      [postID, userID]
-    );
-
-    return result;
-  } catch (error) {
-    console.error("Error deleting shared post:", error);
-    throw new Error("Database error while deleting shared post");
-  }
-};
-
-// Edit a shared post's caption
-const editSharedPostDb = async (postID, userID, content) => {
-  const [result] = await pool.query(
-    `UPDATE posts SET content = ? WHERE postID = ? AND userID = ?`,
-    [content, postID, userID]
-  );
-  return result;
 };
 
 

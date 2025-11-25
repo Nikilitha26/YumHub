@@ -51,41 +51,24 @@ const getPost = async (req, res) => {
 
 // Create a new post
 const createPost = async (req, res) => {
-  try {
-    if (!req.body || !req.user) {
-      return res.status(400).json({ 
-          message: 'Invalid request: missing body or user authentication' 
-      });
+    try {
+        const { title, content, imageUrl, category, tags } = req.body;
+
+        // Make sure the user is authenticated
+        if (!req.user || !req.user.userID) {
+            return res.status(401).json({ message: 'User not authenticated' });
+        }
+
+        const userID = req.user.userID;
+
+        // Insert post into DB
+        const result = await insertPostDb(userID, title, content, imageUrl || '', category || 'General', tags || [], 0);
+
+        res.status(201).json({ message: 'Post created successfully', postID: result.insertId });
+    } catch (err) {
+        console.error('Error creating post:', err);
+        res.status(500).json({ message: 'Database error while inserting post' });
     }
-
-    const { title, content, imageUrl, category, tags } = req.body;
-    const userID = req.user.id;
-
-    if (!title || !content) {
-      return res.status(400).json({ message: 'Title and content are required' });
-    }
-
-    const result = await insertPostDb(
-        userID,
-        title,
-        content,
-        imageUrl || '',
-        category || 'General',
-        tags || [],
-        0
-    );
-
-    // Fetch followers
-    const [followers] = await pool.query('SELECT followerID FROM followers WHERE userID = ?', [userID]);
-    for (const f of followers) {
-      await createNotificationDb(f.followerID, userID, 'new_post', `${req.user.firstName} added a new post`, result.insertId);
-    }
-
-    return res.status(201).json({ message: 'Post created successfully' });
-  } catch (error) {
-    console.error('Error creating post:', error);
-    return res.status(500).json({ message: 'Error creating post' });
-  }
 };
 
 // Update a post
@@ -224,7 +207,7 @@ const deleteSharedPost = async (req, res) => {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
-    // Check if post exists and belongs to this user
+    // Checking if post exists and belongs to this user
     const [sharedPost] = await pool.query(
       "SELECT * FROM posts WHERE postID = ? AND userID = ? AND sharedFromPostID IS NOT NULL",
       [postID, userID]
@@ -247,8 +230,8 @@ const deleteSharedPost = async (req, res) => {
 // Edit a shared post
 const editSharedPost = async (req, res) => {
   const postID = req.params.id;
-  const userID = req.user.userID; // from token
-  const { content } = req.body; // <-- use 'content' instead of 'caption'
+  const userID = req.user.userID; 
+  const { content } = req.body;
 
   if (!content) {
     return res.status(400).json({ message: 'Content is required' });
@@ -305,7 +288,8 @@ const addComment = async (req, res) => {
   try {
     const { commentText, parentCommentID = null } = req.body;
     const postID = req.params.id;
-    const userID = req.user.id; // from verifyAToken middleware
+    const userID = req.user.userID;
+
 
     if (!postID || !userID || !commentText) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -316,7 +300,7 @@ const addComment = async (req, res) => {
 
     // Fetch user info
     const userData = await getUserDbById(userID);
-    const user = userData[0]; // first item in the array
+    const user = userData[0]; 
     const userName = user ? `${user.firstName} ${user.lastName}` : "Unknown";
 
     // Return full comment object including userName
@@ -363,7 +347,7 @@ const getComments = async (req, res) => {
 // Edit a comment
 const editComment = async (req, res) => {
   const commentID = req.params.id;
-  const userID = req.user.id;
+  const userID = req.user.userID;
   const { commentText } = req.body;
 
   try {
@@ -392,10 +376,11 @@ const editComment = async (req, res) => {
 // Delete a comment
 const deleteComment = async (req, res) => {
   const commentID = req.params.id;
-  const userID = req.user.id;
+
+  // FIX HERE:
+  const userID = req.user.userID;
 
   try {
-    // Get the comment first
     const [comment] = await pool.query(
       'SELECT * FROM comments WHERE commentID = ?',
       [commentID]
@@ -411,6 +396,7 @@ const deleteComment = async (req, res) => {
 
     await deleteCommentDb(commentID);
     res.json({ message: 'Comment deleted successfully' });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error deleting comment' });
@@ -443,33 +429,29 @@ const replyComment = async (req, res) => {
 // Like or Unlike a comment
 const likeComment = async (req, res) => {
   const commentID = req.params.id;
-  const userID = req.user.id;
+  const userID = req.user.userID;  
+  const userName = `${req.user.firstName} ${req.user.lastName}`;
 
   try {
-    // Ensure the comment exists
     const comment = await getCommentByIdDb(commentID);
     if (!comment) {
       return res.status(404).json({ error: 'Comment not found' });
     }
 
-    const { liked, likeCount } = await likeCommentDb(userID, commentID);
-
-    // Optional notification
-if (post.userID !== userID) {
-  await createNotificationDb(post.userID, userID, 'comment', `${req.user.firstName} commented on your post`, postID);
-}
-
+    const { liked, likeCount } = await likeCommentDb(userID, commentID, userName);
 
     res.json({
       message: liked ? 'Comment liked' : 'Comment unliked',
       liked,
-      likeCount,
+      likeCount
     });
+
   } catch (error) {
     console.error('Error liking/unliking comment:', error);
     res.status(500).json({ message: 'Failed to like/unlike comment' });
   }
 };
+
                     
 
 export {getPosts, getPost, createPost, deletePost, updatePost, likePost, addComment, getComments, deleteCommentDb, editComment, deleteComment, replyComment, getAllComments, likeComment, sharePost, deleteSharedPost, editSharedPost, deleteNotification, };

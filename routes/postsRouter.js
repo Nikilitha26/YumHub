@@ -10,7 +10,6 @@ const router = express.Router();
 
                 // POSTS
 
-// Route to get all posts
 // Route to get all posts (with user's liked status)
 // router.get('/', verifyAToken, getPosts);
 router.get('/', (req, res, next) => {
@@ -34,7 +33,7 @@ router.delete('/:id', verifyAToken, deletePost);
 
 // Route to share a post
 router.post('/:postID/share', verifyAToken, async (req, res) => {
-  const userID = req.user.userID; // now req.user is guaranteed
+  const userID = req.user.userID; 
   const { caption, userName } = req.body;
   const postID = req.params.postID;
 
@@ -54,7 +53,7 @@ router.post('/:postID/share', verifyAToken, async (req, res) => {
 
 // Delete a shared post
 router.delete('/:postID/shared', verifyAToken, async (req, res) => {
-  const userID = req.user?.userID; // ✔ use userID as set in middleware
+  const userID = req.user?.userID; 
   const postID = req.params.postID;
 
   if (!userID) {
@@ -82,7 +81,7 @@ router.patch('/shared/:id', verifyAToken, editSharedPost);
 // Route to like a post
 router.post('/:id/like', verifyAToken, async (req, res) => {
   try {
-    const userID = req.user.userID; // ✔ fixed
+    const userID = req.user.userID; 
     const userFirstName = req.user.firstName;
     const postID = parseInt(req.params.id);
 
@@ -160,6 +159,5 @@ router.post('/comments/reply', verifyAToken, replyComment);
 
 // Like or Unlike a comment
 router.post('/comments/:id/like', verifyAToken, likeComment);
-      
 
 export default router;
